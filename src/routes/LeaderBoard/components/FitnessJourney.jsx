@@ -112,33 +112,95 @@
 
 
 // FitnessJourney.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Home, BarChart2, PieChart as PieIcon } from "lucide-react";
-import WeeklyPlanView from "./WeeklyPlanView.jsx"; // adjust path as needed
+import WeeklyPlanView from "./WeeklyPlanView.jsx"; // adjust path if needed
 import StatsView from "./StatsView.jsx";
 import "./FitnessJourney.css";
+
+// Keep consistent with apiClient.js
+const API_BASE =
+  (window.__ENV__ && window.__ENV__.API_BASE) ||
+  "https://nutrihelp-backend-deployment.onrender.com/api";
+
+// Token key used in apiClient.js
+const ACCESS_KEY = "nh_access";
+const getAccess = () => localStorage.getItem(ACCESS_KEY);
 
 const FitnessJourney = () => {
   const [fitnessData, setFitnessData] = useState(null);
   const [visibleWeeks, setVisibleWeeks] = useState(12);
   const [selectedWeek, setSelectedWeek] = useState(null);
-  const [completedWeeks, setCompletedWeeks] = useState([]);
-  const [points, setPoints] = useState(0);
+  const [completedWeeks, setCompletedWeeks] = useState(() => {
+    // Persist across reloads
+    try {
+      const saved = localStorage.getItem("nh_completed_weeks");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [points, setPoints] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nh_points");
+      return saved ? Number(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [activePage, setActivePage] = useState("weekly");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  const persistProgress = (weeks, pts) => {
+    try {
+      localStorage.setItem("nh_completed_weeks", JSON.stringify(weeks));
+      localStorage.setItem("nh_points", String(pts));
+    } catch {}
+  };
+
+  const fetchFitnessData = useCallback(async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const headers = {};
+      const token = getAccess();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      // Normalize to lowercase path
+      const res = await fetch(`${API_BASE}/fitness-journey`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        // no body
+      }
+
+      if (!res.ok) {
+        const msg =
+          (data && (data.error || data.message)) ||
+          `Failed to load (status ${res.status})`;
+        throw new Error(msg);
+      }
+
+      // If API returns an array, use the latest item; else use the object
+      const latest = Array.isArray(data) ? data[data.length - 1] : data;
+      setFitnessData(latest || null);
+    } catch (e) {
+      setErr(e?.message || "Unable to fetch fitness data.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchFitnessData = async () => {
-      try {
-        const res = await fetch("http://localhost:80/api/fitness-Journey");
-        const data = await res.json();
-        setFitnessData(Array.isArray(data) ? data[data.length - 1] : data);
-      } catch (error) {
-        console.error("Error fetching fitness data:", error);
-      }
-    };
-
     fetchFitnessData();
-  }, []);
+  }, [fetchFitnessData]);
 
   const handleWeekClick = (week) => {
     setSelectedWeek(week);
@@ -146,8 +208,11 @@ const FitnessJourney = () => {
 
   const handleCompleteWeek = () => {
     if (selectedWeek && !completedWeeks.includes(selectedWeek.week)) {
-      setCompletedWeeks([...completedWeeks, selectedWeek.week]);
-      setPoints(points + 10);
+      const updatedWeeks = [...completedWeeks, selectedWeek.week];
+      const updatedPoints = points + 10;
+      setCompletedWeeks(updatedWeeks);
+      setPoints(updatedPoints);
+      persistProgress(updatedWeeks, updatedPoints);
       setSelectedWeek(null);
     }
   };
@@ -156,33 +221,44 @@ const FitnessJourney = () => {
     <div className="fitness-journey">
       <div className="score">
         <p>Your Fitness Journey</p>
-        <div className="">⭐ {points} pts</div>
+        <div>⭐ {points} pts</div>
       </div>
 
       <div className="feature-picker">
         <div
           className={`feature-icon ${activePage === "weekly" ? "active" : ""}`}
           onClick={() => setActivePage("weekly")}
+          title="Weekly Plan"
         >
           <Home />
         </div>
         <div
           className={`feature-icon ${activePage === "stats" ? "active" : ""}`}
           onClick={() => setActivePage("stats")}
+          title="Stats"
         >
           <PieIcon />
         </div>
         <div
           className={`feature-icon ${activePage === "progress" ? "active" : ""}`}
           onClick={() => setActivePage("progress")}
+          title="Progress (coming soon)"
         >
           <BarChart2 />
         </div>
-        
       </div>
 
-      {/* Conditional rendering based on activePage */}
-      {activePage === "weekly" && (
+      {loading && <p className="hint">Loading your fitness journey...</p>}
+      {!loading && err && (
+        <div className="error">
+          <p>{err}</p>
+          <button className="retry-button" onClick={fetchFitnessData}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!loading && !err && activePage === "weekly" && (
         <WeeklyPlanView
           fitnessData={fitnessData}
           visibleWeeks={visibleWeeks}
@@ -194,13 +270,18 @@ const FitnessJourney = () => {
         />
       )}
 
-      {activePage === "progress" && <p>Progress feature coming soon...</p>}
-      {activePage === "stats" && (
-        <StatsView fitnessData={fitnessData} completedWeeksCount={completedWeeks.length} />
+      {!loading && !err && activePage === "progress" && (
+        <p>Progress feature coming soon...</p>
+      )}
+
+      {!loading && !err && activePage === "stats" && (
+        <StatsView
+          fitnessData={fitnessData}
+          completedWeeksCount={completedWeeks.length}
+        />
       )}
     </div>
   );
 };
 
 export default FitnessJourney;
-

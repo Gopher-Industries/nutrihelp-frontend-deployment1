@@ -1,28 +1,18 @@
-/*import {
-  multiFactor,
-  PhoneAuthProvider,
-  PhoneMultiFactorGenerator,
-  sendEmailVerification,
-} from "firebase/auth";*/
+// src/routes/SignUp/SignUp.jsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "../../App.css";
 import Input from "../../components/general_components/Input/Input";
-/*import {
-  auth,
-  createAuthUserWithEmailandPassword,
-  createUserDocFromAuth,
-} from "../../utils/firebase";*/
 import { useDarkMode } from "../DarkModeToggle/DarkModeContext";
 import NutrihelpLogo from "./Nutrihelp_Logo.PNG";
 import "./SignUp.css";
 import FramerClient from "../../components/framer-client";
 import { UserIcon } from "lucide-react";
 
-const API_BASE = "http://localhost";
+// ✅ Single source of truth for API calls
+import api, { auth as apiAuth } from "../../apiClient"; // adjust path if needed
 
-const SignUp = (props) => {
-  // Initialise state for user contact info and phone number
+const SignUp = () => {
   const [contact, setContact] = useState({
     firstName: "",
     lastName: "",
@@ -32,65 +22,19 @@ const SignUp = (props) => {
   });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-
-  const [phoneNumber, setPhoneNumber] = useState("");
   const { darkMode } = useDarkMode();
-  // const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
+  const navigate = useNavigate();
 
-  // Set up reCAPTCHA on component mount
-  // useEffect(() => {
-  //     try {
-  //         const verifier = new RecaptchaVerifier('sign-up-button', {
-  //             'size': 'invisible',
-  //         }, auth);
-  //         setRecaptchaVerifier(verifier);
-  //     } catch (error) {
-  //         // Log error if reCAPTCHA initialisation fails
-  //         console.error('Error initializing reCAPTCHA:', error);
-  //     }
-  // }, []);
-
-  // Function to handle submission of the sign-up form
-  /*const handleSubmit = async (event) => {
-    event.preventDefault();
-    const { email, password, firstName, lastName, confirmPassword } = contact;
-
-    // Check password confirmation
-    if (password !== confirmPassword) {
-      alert("Passwords do not match!");
-      return;
-    }
-
-    try {
-      // Create user, send email verification, create user doc, and set up MFA
-      const { user } = await createAuthUserWithEmailandPassword(
-        email,
-        password
-      );
-      await sendEmailVerification(user);
-      const displayName = `${firstName} ${lastName}`;
-      await createUserDocFromAuth(user, {
-        displayName,
-        firstName,
-        lastName,
-        password,
-      });
-      await setupMultiFactorAuthentication(user);
-
-      // Redirect to login if user object exists
-      if (user) {
-        window.location.href = "/login";
-      }
-    } catch (error) {
-      // Log error if user creation or MFA setup fails
-      console.log("Error in user creation or MFA setup:", error.message);
-    }
-  };*/
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
 
     const { firstName, lastName, email, password, confirmPassword } = contact;
+
+    if (!firstName.trim() || !lastName.trim()) {
+      setErrorMsg("Please enter your first and last name.");
+      return;
+    }
     if (password !== confirmPassword) {
       setErrorMsg("Passwords do not match.");
       return;
@@ -106,82 +50,24 @@ const SignUp = (props) => {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        //credentials: "include",
-      });
 
-      if (!res.ok) {
-        const text = await res.text();
-        let msg = `Sign up failed (HTTP ${res.status})`;
-        try {
-          const data = JSON.parse(text);
-          msg =
-            data.error ||
-            data.message ||
-            (Array.isArray(data.errors)
-              ? data.errors.map((e) => e.msg).join(", ")
-              : msg);
-        } catch {}
-        throw new Error(msg);
-      }
+      // Uses API_BASE from apiClient.js (Render by default).
+      // Tries /auth/register, then falls back to /signup.
+      await apiAuth.register(payload);
 
-      if (res.status === 201) {
-        window.location.href = "/login";
-        return;
-      }
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Sign up failed (HTTP ${res.status})`);
+      // ✅ After successful signup, go to /home
+      navigate("/home");
     } catch (err) {
-      setErrorMsg(err.message);
+      const msg = err?.message || "Sign up failed. Please try again.";
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to handle form field changes and update state
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setContact((preValue) => ({
-      ...preValue,
-      [name]: value,
-    }));
-  };
-
-  // Function to set up multi-factor authentication
-  const setupMultiFactorAuthentication = async (user) => {
-    try {
-      const { firstName, lastName } = contact;
-
-      // Set up phone number verification for MFA
-      const multiFactorSession = await multiFactor(user).getSession();
-      const phoneInfoOptions = {
-        phoneNumber: phoneNumber,
-        session: multiFactorSession,
-      };
-      const phoneAuthProvider = new PhoneAuthProvider(auth);
-      const verificationId = await phoneAuthProvider.verifyPhoneNumber(
-        phoneInfoOptions,
-        recaptchaVerifier
-      );
-      const verificationCode = prompt(
-        "Enter the verification code you received:"
-      );
-      const cred = PhoneAuthProvider.credential(
-        verificationId,
-        verificationCode
-      );
-      const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
-
-      // Enroll user in MFA
-      const mfaDisplayName = `${firstName} ${lastName}`;
-      await multiFactor(user).enroll(multiFactorAssertion, mfaDisplayName);
-    } catch (error) {
-      // Log error if MFA setup fails
-      console.error("MFA setup failed:", error);
-    }
+    setContact((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -195,7 +81,6 @@ const SignUp = (props) => {
               className="rounded-xl w-[500px] mx-auto"
             />
 
-            {/* NEW: wrap inputs in a form to use onSubmit */}
             <form onSubmit={handleSubmit}>
               <div className="user">
                 <div className="first">
@@ -282,6 +167,7 @@ const SignUp = (props) => {
 
             <p className="text-2xl font-semibold text-center mt-4 mb-4">Or</p>
             <button
+              type="button"
               className={`w-full rounded-md mb-6 text-2xl font-bold flex justify-center gap-3 items-center ${
                 darkMode
                   ? "bg-green-700 hover:bg-green-500"
@@ -314,8 +200,7 @@ const SignUp = (props) => {
           <div className="flex flex-col justify-center items-center m-auto">
             <img
               src="https://cdni.iconscout.com/illustration/premium/thumb/woman-watching-food-menu-while-checkout-order-using-application-illustration-download-in-svg-png-gif-file-formats--online-service-mobile-app-pack-e-commerce-shopping-illustrations-10107922.png"
-              alt="Nutrihelp Logo 2"
-              className=""
+              alt="Nutrihelp Illustration"
             />
           </div>
         </div>

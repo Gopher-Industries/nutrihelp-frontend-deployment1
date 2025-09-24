@@ -44,7 +44,7 @@ const MFAform = () => {
  
     try {
  
-      const response = await fetch('http://localhost:80/api/login/mfa', {
+      const response = await fetch('https://nutrihelp-backend-deployment.onrender.com/api/login/mfa', {
  
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
