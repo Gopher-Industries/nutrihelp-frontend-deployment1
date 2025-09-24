@@ -14,7 +14,7 @@
 }*/
 
 export async function fetchRecipes(user_id) {
-  const res = await fetch("http://localhost:80/api/recipe", {
+  const res = await fetch("https://nutrihelp-backend-deployment.onrender.com/api/recipe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user_id }),

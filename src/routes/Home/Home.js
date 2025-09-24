@@ -64,7 +64,7 @@ const Home = () => {
     e.preventDefault();
 
     // Make the fetch request
-    fetch("http://localhost:80/api/contactus", {
+    fetch("https://nutrihelp-backend-deployment.onrender.com/api/contactus", {
       method: "POST",
       body: JSON.stringify(formData),
       headers: {

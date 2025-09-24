@@ -113,7 +113,7 @@ function UserPreference() {
     console.log("preferencedata", preferencedata);
 
     // Make the fetch request
-    fetch('http://localhost:80/api/userPreference', {
+    fetch('https://nutrihelp-backend-deployment.onrender.com/api/userPreference', {
       method: 'POST',
       body: JSON.stringify({ id, preferencedata }),
       headers: {

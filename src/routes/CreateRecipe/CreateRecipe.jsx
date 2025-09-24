@@ -197,7 +197,7 @@ function CreateRecipe() {
         await saveToIndexedDB(formData);
         window.dispatchEvent(new Event("recipeUpdated"));
 
-        fetch("http://localhost:80/api/recipe/", {
+        fetch("https://nutrihelp-backend-deployment.onrender.com/api/recipe/", {
           method: "POST",
           body: JSON.stringify(formData),
           headers: {

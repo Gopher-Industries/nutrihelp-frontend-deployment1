@@ -282,7 +282,7 @@ export default function ObesityPredict() {
       MTRANS: formData.transport
     };
 
-    const response = await fetch('http://localhost:8000/ai-model/medical-report/retrieve', {
+    const response = await fetch('https://nutrihelp-backend-deployment.onrender.com/ai-model/medical-report/retrieve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
