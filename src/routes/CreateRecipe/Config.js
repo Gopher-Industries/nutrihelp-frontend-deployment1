@@ -1,7 +1,7 @@
 // config.js
 // Render-ready lookups using apiClient.js
 // Adjust the import path if this file lives in a different folder.
-import api, { fooddata } from "./apiClient";
+import api, { fooddata } from "../../apiClient";
 
 const ingredientListDB = {
   ingredient: [{ value: "", label: "", id: 0 }],
