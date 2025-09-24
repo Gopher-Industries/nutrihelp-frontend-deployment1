@@ -45,7 +45,7 @@ function ScanBarcode() {
     e.preventDefault();
 
     try {
-      const response = await fetch(`http://localhost:80/api/barcode?code=${barcodeInput}`, {
+      const response = await fetch(`https://nutrihelp-backend-deployment.onrender.com/api/barcode?code=${barcodeInput}`, {
         method: "POST",
         body: JSON.stringify({ user_id }),
         headers: {
