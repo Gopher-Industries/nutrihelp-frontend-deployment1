@@ -1,0 +1,224 @@
+/* Container & Typography */
+.search-recipes-page {
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  background-color: #f5e8fa;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.main-title {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  color: var(--recipe-search-header-color);
+}
+
+/* Search Bar */
+.search-bar {
+  margin: 0 auto 30px;
+  width: 50%;
+}
+.search-input {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  font-size: 1rem;
+  outline: none;
+}
+
+/* Section Titles */
+.section-title {
+  font-size: 1.5rem;
+  margin: 40px 0 20px;
+  color: #333;
+}
+
+/* Popular Recipe “Chips” */
+.popular-chips {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+.popular-chips button {
+  background-color: var(--search-recipe-button-background-color);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s, transform 0.2s;
+}
+.popular-chips button:hover {
+  background-color: #b52478;
+  transform: scale(1.05);
+}
+
+/* Categories Grid */
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 30px;
+  margin: 20px auto;
+  max-width: 1000px;
+}
+.category-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+}
+.category-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+.category-card img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+.category-card h3 {
+  margin: 12px 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+/* No-results text */
+.no-results {
+  color: #777;
+  font-style: italic;
+}
+
+/* Big Search Button */
+.search-button {
+  margin-top: 30px;
+  padding: 12px 48px;
+  background-color: var(--search-recipe-button-background-color);
+  color: #fff;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.search-button:hover {
+  background-color: #b52478;
+}
+
+/* Recipe List (unchanged) */
+.recipes-list {
+  margin-top: 50px;
+}
+
+/* Add at bottom */
+.recipes-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 30px;
+}
+
+.search-recipes-page {
+  margin-top: 0 !important;
+  padding-top: 12px !important;  
+  position: relative;
+}
+ 
+
+:where(body, main, #root) .search-recipes-page {
+  margin-top: 0 !important;
+  padding-top: 12px !important;
+}
+ 
+
+.search-recipes-page::before {
+  content: none !important;
+  display: none !important;
+}
+ 
+
+.search-recipes-page > *:first-child {
+  margin-top: 0 !important;
+}
+.main-title {
+  margin: 0 0 20px !important;
+  line-height: 1.2;
+  font-size: 3rem !important;
+}
+ 
+ 
+
+.search-bar {
+  width: 100%;
+  margin: 0 auto 30px;  
+
+}
+ 
+.search-input {
+  display: block;          
+  margin: 0 auto;          
+  width: min(800px, 90vw); 
+  box-sizing: border-box;
+ 
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  font-size: 1rem;
+  outline: none;
+}
+ 
+ 
+ 
+.section {
+  max-width: 1100px;     
+  margin: 24px auto 0;
+  padding: 0 24px;      
+}
+ 
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.375rem;    
+  font-weight: 700;
+  color: #2d2d2d;
+  margin: 24px 0 12px;
+  letter-spacing: 0.2px;
+}
+ 
+
+.section-title::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--search-recipe-button-background-color);
+  box-shadow: 0 0 0 3px rgba(181, 36, 120, 0.15);
+}
+ 
+.section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.08),
+    rgba(0,0,0,0.03)
+  );
+}
+ 
+
+.popular-chips {
+  justify-content: flex-start;  
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+ 
+ 
