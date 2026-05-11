@@ -9,8 +9,8 @@ export const REGEX = {
   // 10 digit phone number (assuming AU/General 10 digit)
   PHONE: /^\d{10}$/,
 
-  // Password: 8+ chars, at least one uppercase, one number, one special character
-  PASSWORD: /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+  // Password: 8+ chars, uppercase, lowercase, number, and special character
+  PASSWORD: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
 
   // Barcode: Numeric only, common lengths are 8, 12, 13, 14
   BARCODE: /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/,
@@ -27,7 +27,7 @@ export const ERROR_MESSAGES = {
   EMAIL_INVALID: "Please enter a valid email address (e.g., name@example.com)",
   PHONE_INVALID: "Please enter a 10-digit phone number",
   PASSWORD_INVALID:
-    "Password must be at least 8 characters long and include an uppercase letter, a number, and a special character",
+    "Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character (@$!%*?&)",
   PASSWORD_MISMATCH: "Passwords do not match",
   BARCODE_INVALID: "Barcode must be 8, 12, 13, or 14 digits",
   POSITIVE_NUM_INVALID: "Please enter a positive number",

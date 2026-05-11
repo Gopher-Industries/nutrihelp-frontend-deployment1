@@ -509,7 +509,7 @@ function App() {
         />
 
         <Route
-          path="HealthTools"
+          path="/health-tools"
           element={
             <AuthenticateRoute>
               <HealthTools />
@@ -536,7 +536,7 @@ function App() {
         />
 
         <Route
-          path="HealthFAQ"
+          path="/health-faq"
           element={
             <AuthenticateRoute>
               <HealthFAQ />

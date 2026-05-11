@@ -22,23 +22,24 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [serverError, setServerError] = useState("");
 
-  const handleGoogleSignup = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
-      },
-    });
-
-    if (error) {
-      setServerError(error.message);
+  const handleGoogleSignIn = async (event) => {
+    event?.preventDefault();
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/home`,
+          queryParams: { access_type: "offline", prompt: "consent" },
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error("Google sign-in URL was not returned.");
+      window.location.assign(data.url);
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      toast.error(err?.message || "Google sign-in failed. Please try again.");
     }
-  };
-
-  const handleAppleSignup = async () => {
-    const message = "Apple sign-in is not configured in this sprint build yet.";
-    setServerError(message);
-    toast.info(message);
   };
 
   const navigate = useNavigate();
@@ -105,6 +106,20 @@ export default function SignUp() {
           try {
             const data = JSON.parse(text);
 
+            // Supabase-level weak password (code field)
+            if (
+              data.code === "WEAK_PASSWORD" ||
+              (typeof data.error === "string" && (
+                data.error.toLowerCase().includes("weak_password") ||
+                data.error.toLowerCase().includes("weak password")
+              ))
+            ) {
+              setErrors({
+                password: "Password is too weak. Use uppercase, lowercase, a number, and a special character (@$!%*?&).",
+              });
+              return;
+            }
+
             if (typeof data.error === "string") {
               if (
                 data.error.toLowerCase().includes("user already exists") ||
@@ -115,32 +130,25 @@ export default function SignUp() {
                 });
                 return;
               }
-              if (
-                data.error.toLowerCase().includes("weak_password") ||
-                data.error.toLowerCase().includes("weak password")
-              ) {
-                setErrors({
-                  password:
-                    "Password is too weak. Please choose a stronger password.",
-                });
-                return;
-              }
             }
 
             if (data.errors && Array.isArray(data.errors)) {
               const fieldErrors = {};
+              const unmapped = [];
               data.errors.forEach((err) => {
                 const rawField = err.param || err.path || err.field;
                 const errMsg = err.msg || err.message;
 
+                if (!rawField) {
+                  if (errMsg) unmapped.push(errMsg);
+                  return;
+                }
                 if (rawField === "email") fieldErrors.email = errMsg;
                 if (rawField === "password") {
-                  if (errMsg && errMsg.toLowerCase().includes("weak")) {
-                    fieldErrors.password =
-                      "Password is too weak. Please choose a stronger password.";
-                  } else {
-                    fieldErrors.password = errMsg;
-                  }
+                  fieldErrors.password =
+                    errMsg && errMsg.toLowerCase().includes("weak")
+                      ? "Password is too weak. Use uppercase, lowercase, a number, and a special character (@$!%*?&)."
+                      : errMsg;
                 }
                 if (rawField === "contact_number" || rawField === "phone") {
                   fieldErrors.phone = errMsg;
@@ -156,6 +164,10 @@ export default function SignUp() {
 
               if (Object.keys(fieldErrors).length > 0) {
                 setErrors(fieldErrors);
+                return;
+              }
+              if (unmapped.length > 0) {
+                setServerError(unmapped.join(" "));
                 return;
               }
             }
@@ -341,23 +353,32 @@ export default function SignUp() {
 
     socialBox: {
       display: "flex",
-      gap: "15px",
-      marginBottom: "0px",
+      justifyContent: "center",
+      width: "100%",
     },
 
     socialBtn: {
-      flex: 1,
-      padding: "12px",
+      width: "100%",
+      maxWidth: "340px",
+      padding: "13px 22px",
       borderRadius: "8px",
       border: "1px solid black",
       backgroundColor: "white",
       display: "flex",
       justifyContent: "center",
       alignItems: "center",
-      gap: "6px",
+      gap: "10px",
       cursor: "pointer",
       fontSize: "14px",
       fontWeight: 600,
+      minHeight: "48px",
+      color: "#111111",
+    },
+
+    socialBtnLabel: {
+      fontSize: "14px",
+      fontWeight: 600,
+      color: "#111111",
     },
   };
 
@@ -594,63 +615,17 @@ export default function SignUp() {
               type="button"
               style={styles.socialBtn}
               className="social-btn"
-              onClick={handleGoogleSignup}
+              onClick={handleGoogleSignIn}
             >
-              <span
-                style={{
-                  fontSize: "18px",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 48 48"
-                >
-                  <path
-                    fill="#FFC107"
-                    d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-                  />
-                  <path
-                    fill="#FF3D00"
-                    d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
-                  />
-                  <path
-                    fill="#4CAF50"
-                    d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
-                  />
-                  <path
-                    fill="#1976D2"
-                    d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-                  />
+              <span aria-hidden="true" style={{ display: "flex", alignItems: "center" }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48">
+                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                  <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
                 </svg>
               </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.socialBtn}
-              className="social-btn"
-              onClick={handleAppleSignup}
-            >
-              <span
-                style={{
-                  fontSize: "18px",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 50 50"
-                >
-                  <path d="M44.527344 34.75C43.449219 37.144531 42.929688 38.214844 41.542969 40.328125C39.601563 43.28125 36.863281 46.96875 33.480469 46.992188C30.46875 47.019531 29.691406 45.027344 25.601563 45.0625C21.515625 45.082031 20.664063 47.03125 17.648438 47C14.261719 46.96875 11.671875 43.648438 9.730469 40.699219C4.300781 32.429688 3.726563 22.734375 7.082031 17.578125C9.457031 13.921875 13.210938 11.773438 16.738281 11.773438C20.332031 11.773438 22.589844 13.746094 25.558594 13.746094C28.441406 13.746094 30.195313 11.769531 34.351563 11.769531C37.492188 11.769531 40.8125 13.480469 43.1875 16.433594C35.421875 20.691406 36.683594 31.78125 44.527344 34.75ZM31.195313 8.46875C32.707031 6.527344 33.855469 3.789063 33.4375 1C30.972656 1.167969 28.089844 2.742188 26.40625 4.78125C24.878906 6.640625 23.613281 9.398438 24.105469 12.066406C26.796875 12.152344 29.582031 10.546875 31.195313 8.46875Z" />
-                </svg>
-              </span>
+              <span style={styles.socialBtnLabel}>Continue with Google</span>
             </button>
           </div>
         </div>
