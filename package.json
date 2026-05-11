@@ -43,7 +43,11 @@
     "semantic-ui-react": "^2.1.4",
     "supports-color": "^9.4.0",
     "swiper": "^11.2.6",
-    "to-regex-range": "^5.0.1"
+    "to-regex-range": "^5.0.1",
+    "ajv": "^8.17.1"
+  },
+  "engines": {
+    "node": "22.x"
   },
   "browserslist": {
     "production": [

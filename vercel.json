@@ -1,6 +1,11 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "react-scripts build",
+  "buildCommand": "node -r ./scripts/patch-crypto.js node_modules/react-scripts/scripts/build.js",
+  "env": {
+    "CI": "false",
+    "GENERATE_SOURCEMAP": "false",
+    "SKIP_PREFLIGHT_CHECK": "true"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
