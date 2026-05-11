@@ -119,6 +119,7 @@ const Home = () => {
 
   const [contactErrors, setContactErrors] = useState({});
   const [contactTouched, setContactTouched] = useState({});
+  const [contactSending, setContactSending] = useState(false);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -126,13 +127,13 @@ const Home = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate
     const err = {};
     if (!formData.name.trim()) err.name = ERROR_MESSAGES.REQUIRED;
     const emailErr = validateEmail(formData.email);
     if (emailErr) err.email = emailErr;
     if (!formData.subject.trim()) err.subject = ERROR_MESSAGES.REQUIRED;
     if (!formData.message.trim()) err.message = ERROR_MESSAGES.REQUIRED;
+    else if (formData.message.trim().length < 10) err.message = "Message must be at least 10 characters.";
 
     if (Object.keys(err).length > 0) {
       setContactErrors(err);
@@ -140,25 +141,26 @@ const Home = () => {
       return;
     }
 
-    fetch(`${process.env.REACT_APP_API_BASE_URL || 'https://localhost:8443'}/api/contactus`, {
-      method: "POST",
-      body: JSON.stringify(formData),
-      headers: {
-        Origin: "http://localhost:3000/",
-        "Content-Type": "application/json",
-      },
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error("Failed to send message");
-        toast.success("Message sent successfully!");
-        setFormData({ name: "", email: "", subject: "", message: "" });
-        setContactErrors({});
-        setContactTouched({});
-      })
-      .catch((error) => {
-        console.error("Error sending message:", error);
-        toast.error("Failed to send message. Please try again later.");
+    setContactSending(true);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'https://localhost:8443'}/api/contactus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
+
+      if (!response.ok) throw new Error("Failed to send message");
+
+      toast.success("Message sent! Check your email for confirmation.");
+      setFormData({ name: "", email: "", subject: "", message: "" });
+      setContactErrors({});
+      setContactTouched({});
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to send message. Please try again later.");
+    } finally {
+      setContactSending(false);
+    }
   };
 
   const [subscriptEmail, setSubscriptEmail] = useState("");
@@ -717,8 +719,8 @@ const Home = () => {
                     <FieldError error={contactErrors.message} touched={contactTouched.message} />
                   </div>
 
-                  <button type="submit" className="btn-primary btn-full btn-send">
-                    Send Message
+                  <button type="submit" className="btn-primary btn-full btn-send" disabled={contactSending}>
+                    {contactSending ? "Sending..." : "Send Message"}
                   </button>
                 </form>
               </div>
