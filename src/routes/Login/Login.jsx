@@ -1,236 +1,593 @@
-// src/routes/Login/Login.jsx
-import { Auth } from "@supabase/auth-ui-react";
-import { ThemeSupa } from "@supabase/auth-ui-shared";
-import { supabase } from "../../supabaseClient";
-import { UserIcon } from "lucide-react";
-import React, { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { UserContext } from "../../context/user.context";
-import { useDarkMode } from "../DarkModeToggle/DarkModeContext";
-import "./Login.css";
-import FramerClient from "../../components/framer-client";
-import NutrihelpLogo from "./Nutrihelp_Logo.PNG";
+"use client"
 
-// ✅ Single source of truth
-import api, { auth as apiAuth, setTokens } from "../../apiClient";
+import React, { useState, useContext, useEffect } from "react"
+import { Eye, EyeOff } from "lucide-react"
+import loginImage from "../../images/Nutrihelp.jpg"
+import logoImage from "../../images/logos_black_icon.png"
 
-const Login = () => {
-  const navigate = useNavigate();
-  const { setCurrentUser } = useContext(UserContext);
-  const [showPassword, setShowPassword] = useState(false);
-  const [contact, setContact] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
-  const [isChecked, setIsChecked] = useState(false);
-  const { darkMode } = useDarkMode();
+// ADDED IMPORTS
+import { toast } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
+import { UserContext } from "../../context/user.context"
+import { useDarkMode } from "../DarkModeToggle/DarkModeContext"
+import { useNavigate, useLocation } from "react-router-dom"
+import { API_BASE_URL } from "../../utils/authApi"
+import { supabase } from "../../supabaseClient"
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setContact((prev) => ({ ...prev, [name]: value }));
-  };
+export default function Login() {
+  // Existing UI state (unchanged)
 
-  const { email, password } = contact;
+  const location = useLocation()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
+  const [errors, setErrors] = useState({ email: "", password: "" })
 
-  const handleSignIn = async (e) => {
-    e.preventDefault();
-    setError("");
+  // ADDED / MERGED logic state & context
+  const [loading, setLoading] = useState(false)
+  const { setCurrentUser } = useContext(UserContext)
+  const { darkMode } = useDarkMode()
+  const navigate = useNavigate()
+
+  const unwrapApiData = (payload) => (payload && typeof payload === "object" && "data" in payload ? payload.data : payload)
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  // validateLogin preserved but now calls handleSignIn on success (instead of alert)
+  const validateLogin = async (e) => {
+    e.preventDefault()
+    let valid = true
+    const newErrors = { email: "", password: "" }
+
+    if (!validateEmail(email)) {
+      newErrors.email = "Enter valid email"
+      valid = false
+    }
+
+    if (password.trim() === "") {
+      newErrors.password = "Password required"
+      valid = false
+    }
+
+    setErrors(newErrors)
+
+    if (valid) {
+      // previously: alert("Login successful")
+      // now: perform the real sign-in flow (keeps UI intact)
+      await handleSignIn()
+    }
+  }
+
+  // Handles user sign-in using backend authentication API.
+
+  const handleSignIn = async () => {
+    setLoading(true)
 
     try {
-      // Route through apiClient which knows API_BASE and handles tokens/refresh
-      const data = await apiAuth.login({ email, password });
+      // ✅ Use backend API for login (matches backend's bcrypt-based auth)
+      const res = await fetch(`${API_BASE_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      })
 
-      // Store tokens if returned (ok if using httpOnly cookies)
-      try {
-        setTokens({
-          accessToken: data?.accessToken || data?.token,
-          refreshToken: data?.refreshToken,
-        });
-      } catch {
-        /* no tokens in body or using httpOnly cookies, which is fine */
+      const data = await res.json()
+      const payload = unwrapApiData(data)
+
+      // Handle MFA required (202 status) - redirect to MFA page
+      if (res.status === 202) {
+        toast.info(payload?.message || data.message || "MFA token sent to your email")
+        navigate("/mfa", {
+          state: {
+            email: email.trim().toLowerCase(),
+            password,
+            rememberMe,
+          },
+        })
+        return
       }
 
-      // Update your app user context
-      const expirationTimeInMillis = isChecked ? 3600000 : 0;
-      const userPayload =
-        data?.user || data?.profile || data?.data || { email }; // fallback if API returns minimal user
-      setCurrentUser(userPayload, expirationTimeInMillis);
+      if (!res.ok) {
+        toast.error(data.error || data.warning || "Invalid email or password")
+        return
+      }
 
-      toast.success("💧 Welcome back! Don’t forget to check your meal plan & track your water intake!", {
-        position: "top-right",
-        autoClose: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        hideProgressBar: false,
-        theme: "colored",
-        style: {
-          fontSize: "1.1rem",
-          fontWeight: "bold",
-          padding: "1.2rem",
-          borderRadius: "10px",
-          boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
-          backgroundColor: "#d1f0ff",
-          color: "#0d47a1",
-        },
-      });
+      const user = payload?.user || data.user
+      const accessToken =
+        payload?.session?.accessToken || payload?.accessToken || payload?.token || data.token
+      const refreshToken =
+        payload?.session?.refreshToken || payload?.refreshToken || data.refreshToken || ""
+      const expiresIn =
+        payload?.session?.expiresIn || payload?.expiresIn || data.expiresIn || 0
+      const tokenType =
+        payload?.session?.tokenType || payload?.tokenType || data.tokenType || "Bearer"
 
-      // ⛔ BYPASS MFA: go straight home
-      setTimeout(() => {
-        navigate("/");
-      }, 300);
-    } catch (err) {
-      const msg =
-        err?.message ||
-        "Failed to sign in. Please check your credentials and try again.";
-      console.error("Error signing in:", msg);
-      setError(msg);
-      toast.error(msg);
-    }
-  };
+      if (!user || !accessToken) {
+        toast.error("Login session is incomplete. Please try again.")
+        return
+      }
 
-  const handleGoogleSignIn = async () => {
+      const userSession = {
+        id: user.user_id,
+        user_id: user.user_id,
+        email: user.email,
+        name: user.name,
+        role: user.role || user.user_roles?.role_name || "user",
+        token: accessToken,
+        provider: "email",
+      }
+
+      localStorage.removeItem("sso_session")
+
+      if (typeof setCurrentUser === "function") {
+        setCurrentUser(userSession, {
+          persist: rememberMe,
+          accessToken,
+          refreshToken,
+          expiresIn,
+          tokenType,
+        })
+      }
+
+    toast.success("Welcome back!")
+    navigate("/home")
+
+  } catch (err) {
+    console.error("Login error:", err)
+    toast.error("Unable to sign in. Please try again later.")
+  } finally {
+    setLoading(false)
+  }
+}
+
+  // keep Google sign-in logic from old code (unchanged)
+  const handleGoogleSignIn = async (event) => {
+    event?.preventDefault()
+
     try {
-      await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=/home`,
           queryParams: { access_type: "offline", prompt: "consent" },
+          skipBrowserRedirect: true,
         },
-      });
-    } catch (err) {
-      console.error("Google sign-in error:", err);
-      toast.error("Google sign-in failed. Please try again.");
-    }
-  };
+      })
 
-  const handleToggleCheckbox = () => setIsChecked((v) => !v);
-  const handleForgotPasswordClick = () => navigate("/forgotPassword");
+      if (error) {
+        throw error
+      }
+
+      if (!data?.url) {
+        throw new Error("Google sign-in URL was not returned.")
+      }
+
+      window.location.assign(data.url)
+    } catch (err) {
+      console.error("Google sign-in error:", err)
+      toast.error(err?.message || "Google sign-in failed. Please try again.")
+    }
+  }
+
+  const handleForgotPasswordClick = () => {
+    navigate("/forgotPassword")
+  }
+
+  useEffect(() => {
+  if (location.state?.message) {
+    toast.success(location.state.message, {
+      position: "top-right",
+      autoClose: 4000,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: false,
+    })
+  }
+}, [location.state])
+
+
+  // UI (unchanged structure) 
+  const styles = {
+    container: {
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: "100vh",
+      backgroundColor: "#f5f5f5",
+      padding: "20px",
+      fontFamily: '"Poppins", sans-serif',
+    },
+    cardWrapper: {
+      display: "flex",
+      width: "100%",
+      backgroundColor: "white",
+      borderRadius: "28px",
+      overflow: "hidden",
+      boxShadow: "0 8px 35px rgba(0,0,0,0.18)",
+      maxWidth: "1200px",
+      animation: "fadeSlide 0.35s ease",
+      height: "auto",
+    },
+    cardImage: {
+      width: "40%",
+      minHeight: "400px",
+    },
+    cardImageImg: {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+    },
+    cardForm: {
+      width: "60%",
+      padding: "40px 52px",
+      overflowY: "auto",
+    },
+    logoBlock: {
+      textAlign: "center",
+      marginBottom: "14px",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    logo: {
+      width: "50px",
+      marginBottom: "18px",
+    },
+    brandTitle: {
+      fontSize: "22px",
+      fontWeight: 600,
+      margin: 0,
+    },
+    heading: {
+      fontSize: "26px",
+      marginBottom: "12px",
+      fontWeight: 600,
+      margin: "0 0 12px 0",
+      textAlign: "center",
+    },
+    subtitle: {
+      marginBottom: "20px",
+      fontSize: "15px",
+      color: "#555",
+      textAlign: "center",
+      lineHeight: 1.5,
+    },
+    field: {
+      marginBottom: "12px",
+    },
+    label: {
+      fontSize: "14px",
+      fontWeight: 600,
+      marginBottom: "5px",
+      display: "block",
+      color: "#000",
+    },
+    input: {
+      width: "100%",
+      padding: "12px 16px",
+      borderRadius: "8px",
+      border: "2px solid black",
+      fontSize: "15px",
+      fontFamily: "inherit",
+      boxSizing: "border-box",
+      backgroundColor: "transparent",
+      color: "#000",
+    },
+    passwordWrap: {
+      position: "relative",
+      width: "100%",
+    },
+    passwordInput: {
+      width: "100%",
+      padding: "12px 50px 12px 16px",
+      borderRadius: "8px",
+      border: "2px solid black",
+      fontSize: "15px",
+      fontFamily: "inherit",
+      boxSizing: "border-box",
+      backgroundColor: "transparent",
+      color: "#000",
+    },
+    passwordToggle: {
+      position: "absolute",
+      right: "12px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      minWidth: "36px",
+      minHeight: "36px",
+      backgroundColor: "transparent",
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      border: "none",
+      padding: "0",
+      color: "#666",
+      transition: "all 0.2s ease",
+    },
+    checkboxInput: {
+      width: "18px",
+      height: "18px",
+      cursor: "pointer",
+      accentColor: "#000",
+      display: "inline-block",
+      marginTop: "1px",
+    },
+    error: {
+      fontSize: "12px",
+      color: "#ff0000",
+      marginTop: "3px",
+      margin: "3px 0 0 0",
+    },
+    rememberRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      margin: "8px 0 12px 0",
+      flexWrap: "wrap",
+      gap: "10px",
+    },
+    rememberCheck: {
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      cursor: "pointer",
+      fontSize: "14px",
+      color: "#000",
+      lineHeight: "1",
+      userSelect: "none",
+      paddingTop: "5px",
+    },
+
+    forgotLink: {
+      fontSize: "14px",
+      color: "black",
+      textDecoration: "none",
+      cursor: "pointer",
+    },
+    mainBtn: {
+      width: "100%",
+      padding: "12px",
+      backgroundColor: "black",
+      color: "white",
+      borderRadius: "8px",
+      border: "none",
+      cursor: "pointer",
+      fontSize: "15px",
+      fontWeight: 600,
+      marginBottom: "12px",
+      fontFamily: "inherit",
+      transition: "all 0.2s ease",
+    },
+    switchText: {
+      marginBottom: "16px",
+      fontSize: "14px",
+      textAlign: "center",
+    },
+    switchLink: {
+      color: "black",
+      textDecoration: "underline",
+      cursor: "pointer",
+      fontWeight: 600,
+    },
+    divider: {
+      textAlign: "center",
+      margin: "4px 0 14px 0",
+      position: "relative",
+      fontSize: "14px",
+    },
+    dividerLine: {
+      content: '""',
+      position: "absolute",
+      width: "42%",
+      height: "1px",
+      backgroundColor: "#ccc",
+      top: "50%",
+    },
+    socialBox: {
+      display: "flex",
+      justifyContent: "center",
+      width: "100%",
+    },
+    socialBtn: {
+      width: "100%",
+      maxWidth: "340px",
+      padding: "13px 22px",
+      borderRadius: "8px",
+      border: "1px solid black",
+      backgroundColor: "white",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: "10px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: 600,
+      fontFamily: "inherit",
+      transition: "all 0.3s ease",
+      minHeight: "48px",
+      color: "#111111",
+      whiteSpace: "nowrap",
+    },
+    socialBtnLabel: {
+      fontSize: "14px",
+      fontWeight: 600,
+      lineHeight: 1,
+      color: "#111111",
+      display: "inline-block",
+      opacity: 1,
+      visibility: "visible",
+    },
+  }
 
   return (
-    <FramerClient>
-      <div className={`w-screen h-screen ${darkMode && "bg-[#555555]"}`}>
-        <div className="h-auto w-[70%] flex flex-col md:flex-row justify-center items-center mt-24 ml-auto mr-auto shadow-2xl border-none rounded-2xl overflow-hidden p-[20px]">
-          <div className="w-[100%]">
-            <img
-              src={NutrihelpLogo}
-              alt="Nutrihelp Logo"
-              className="rounded-xl w-[500px] mx-auto"
-            />
-            <h2 className={`font-bold text-4xl mt-4 ${darkMode && "text-white"}`}>
-              LOG IN
-            </h2>
-            <p className="text-lg text-center text-gray-500">
-              Enter your email and password to sign in!
-            </p>
+    <div style={styles.container}>
+      <style>{`
+        @keyframes fadeSlide {
+          from { opacity: 0; transform: translateY(15px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
 
-            {error && <p className="error-message">{error}</p>}
+        input::placeholder {
+          color: #888;
+          opacity: 1;
+          font-weight: 400;
+        }
 
-            <label htmlFor="email" className="input-label">
-              Email*
-            </label>
-            <input
-              className={`border-1 ${darkMode && "bg-gray-700 text-white font-semibold"}`}
-              name="email"
-              type="text"
-              placeholder="Enter Your Email"
-              onChange={handleChange}
-              value={email}
-            />
+        input:focus {
+          outline: none;
+          border-color: #333;
+          background-color: rgba(0,0,0,0.02);
+        }
 
-            <div>
-              <label htmlFor="password" className="input-label">
-                Password*
-              </label>
-              <div className="password-field">
-                <input
-                  className={`border-1 ${darkMode && "bg-gray-700 text-white font-semibold"}`}
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Min. 8 characters"
-                  onChange={handleChange}
-                  value={password}
-                />
-                <span
-                  className="eye-icon tts-ignore cursor-pointer"
-                  aria-hidden="true"
-                  onClick={() => setShowPassword((v) => !v)}
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </span>
-              </div>
-            </div>
+        /* REAL RESPONSIVE FIX */
+        @media (max-width: 768px) {
+          .card-wrapper {
+            flex-direction: column !important;
+            min-height: auto !important;
+          }
+          .card-image, 
+          .card-form {
+            width: 100% !important;
+          }
+          .card-image {
+            height: 240px !important;
+          }
+          .card-form {
+            padding: 30px 24px !important;
+          }
+        }
 
-            <div className="options">
-              <div className="keep-logged-in ">
-                <div
-                  className={`checkbox-div ${isChecked ? "checked" : ""}`}
-                  onClick={handleToggleCheckbox}
-                >
-                  <span className="checkbox-indicator"></span>
-                </div>
-                <label htmlFor="keepLoggedIn" className="ml-2">
-                  Keep me logged in
-                </label>
-              </div>
-              <div
-                className={`forgot-password ${darkMode ? "text-purple-300" : "text-purple-800"}`}
-                onClick={handleForgotPasswordClick}
-              >
-                Forgot password?
-              </div>
-            </div>
+        @media (max-width: 480px) {
+          .card-image { height: 180px !important; }
+          .card-form { padding: 24px 16px !important; }
+          .login-social-btn { max-width: 100% !important; }
+        }
+      `}</style>
 
-            <button
-              className={`w-full rounded-full mb-6 text-2xl font-bold flex justify-center gap-3 items-center ${
-                darkMode
-                  ? "bg-purple-700 hover:bg-purple-500"
-                  : "bg-purple-400 text-gray-800 hover:bg-purple-700 hover:text-white"
-              }`}
-              onClick={handleSignIn}
-            >
-              <UserIcon size={24} />
-              Sign In
-            </button>
+      <div style={styles.cardWrapper} className="card-wrapper">
+        <div style={styles.cardImage} className="card-image">
+          <img src={loginImage} style={styles.cardImageImg} alt="NutriHelp" />
+        </div>
 
-            <p className="text-2xl font-semibold text-center mt-4 mb-4">Or</p>
-
-            <button
-              className={`w-full rounded-full mb-6 text-2xl font-bold flex justify-center gap-3 items-center ${
-                darkMode
-                  ? "bg-green-700 hover:bg-green-500"
-                  : "bg-green-500 text-gray-800 hover:bg-green-700 hover:text-white"
-              }`}
-              onClick={handleGoogleSignIn}
-              type="button"
-            >
-              <img
-                src="https://static.vecteezy.com/system/resources/previews/022/613/027/non_2x/google-icon-logo-symbol-free-png.png"
-                className="w-[25px]"
-                alt="Google"
-              />
-              Sign In With Google
-            </button>
-
-            <p className="signup-link mb-5">
-              Not registered yet?{" "}
-              <Link to="/signUp" className={`${darkMode ? "text-purple-300" : "text-purple-800"}`}>
-                Create an Account
-              </Link>
-            </p>
+        <div style={styles.cardForm} className="card-form">
+          <div style={styles.logoBlock}>
+            <img src={logoImage} alt="Logo" style={styles.logo} />
+            <h2 style={styles.brandTitle}>NutriHelp</h2>
           </div>
 
-          <div className="flex flex-col justify-center items-center m-auto">
-            <img
-              src="https://cdni.iconscout.com/illustration/premium/thumb/woman-watching-food-menu-while-checkout-order-using-application-illustration-download-in-svg-png-gif-file-formats--online-service-mobile-app-pack-e-commerce-shopping-illustrations-10107922.png"
-              alt="Nutrihelp Illustration"
-            />
+          <h1 style={styles.heading}>Welcome Back</h1>
+          <p style={styles.subtitle}>Login to continue your personalized nutrition insights and wellness tracking.</p>
+
+          <form onSubmit={validateLogin}>
+            <div style={styles.field}>
+              <label style={styles.label}>Email</label>
+              <input type="email" style={styles.input}
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+              />
+              {errors.email && <p style={styles.error}>{errors.email}</p>}
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Password</label>
+              <div style={styles.passwordWrap}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  style={styles.passwordInput}
+                  className="password-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.passwordToggle}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              {errors.password && <p style={styles.error}>{errors.password}</p>}
+            </div>
+
+            <div style={styles.rememberRow}>
+              <label style={styles.rememberCheck}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={styles.checkboxInput}
+                />
+                Remember Me
+              </label>
+
+              <a style={styles.forgotLink} onClick={handleForgotPasswordClick}>
+                Forgot Password?
+              </a>
+            </div>
+
+            <button type="submit" style={styles.mainBtn} disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+
+          <p style={styles.switchText}>
+            Don't have an account?
+            <span
+              style={styles.switchLink}
+              onClick={() => navigate("/Signup")}
+            >
+              {" "}Create Account
+            </span>
+          </p>
+
+
+          <div style={styles.divider}>
+            <span style={{ backgroundColor: "white", padding: "0 8px", position: "relative", zIndex: 1 }}>
+              or
+            </span>
+            <div style={{ ...styles.dividerLine, left: 0 }} />
+            <div style={{ ...styles.dividerLine, right: 0 }} />
+          </div>
+
+          {/* Social Buttons */}
+          <div style={styles.socialBox}>
+            <button type="button" style={styles.socialBtn} className="login-social-btn" onClick={handleGoogleSignIn}>
+              <span aria-hidden="true" style={{ display: "flex", alignItems: "center" }}>
+                <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="24" height="24" viewBox="0 0 48 48">
+                  <path
+                    fill="#FFC107"
+                    d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+                  ></path>
+                  <path
+                    fill="#FF3D00"
+                    d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+                  ></path>
+                  <path
+                    fill="#4CAF50"
+                    d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+                  ></path>
+                  <path
+                    fill="#1976D2"
+                    d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+                  ></path>
+                </svg>
+              </span>
+              <span style={styles.socialBtnLabel}>Continue with Google</span>
+            </button>
           </div>
         </div>
       </div>
-    </FramerClient>
-  );
-};
-
-export default Login;
+    </div>
+  )
+}

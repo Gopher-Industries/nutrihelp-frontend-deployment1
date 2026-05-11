@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Plus, X, Trash, Check, Edit2, Save } from 'lucide-react';
+import { ERROR_MESSAGES, validatePositiveNumber } from '../../../utils/validationRules';
+import FieldError from '../../../components/FieldError';
+import { toast } from 'react-toastify';
 import './ShoppingList.css';
 
 const ShoppingList = () => {
@@ -9,15 +13,25 @@ const ShoppingList = () => {
     const [newQuantity, setNewQuantity] = useState('1');
     const [newUnit, setNewUnit] = useState('piece');
     const [newCategory, setNewCategory] = useState('vegetable');
-    const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editQuantity, setEditQuantity] = useState('');
+    const [editUnit, setEditUnit] = useState('');
+    const [editCategory, setEditCategory] = useState('');
+
+    const [addErrors, setAddErrors] = useState({});
+    const [addTouched, setAddTouched] = useState({});
+    const [editErrors, setEditErrors] = useState({});
+    const [editTouched, setEditTouched] = useState({});
 
     // Function to generate shopping list from meal plan
     const generateShoppingListFromMealPlan = (selectedItems) => {
         if (!selectedItems || selectedItems.length === 0) return [];
-        
+
         const mealPlanItems = [];
-        
+
         selectedItems.forEach(item => {
             // Generate corresponding shopping list items based on ingredient names
             const ingredients = getIngredientsForMeal(item.name, item.mealType);
@@ -35,7 +49,7 @@ const ShoppingList = () => {
                 });
             });
         });
-        
+
         return mealPlanItems;
     };
 
@@ -104,7 +118,7 @@ const ShoppingList = () => {
                 { name: 'Cinnamon', quantity: 1, unit: 'tsp', category: 'pantry' }
             ]
         };
-        
+
         return ingredientsMap[mealName] || [];
     };
 
@@ -112,62 +126,20 @@ const ShoppingList = () => {
     useEffect(() => {
         const savedItems = localStorage.getItem('shoppingList');
         let items = savedItems ? JSON.parse(savedItems) : [];
-        
+
         // Check if there's data passed from meal plan page
         if (location.state && location.state.selectedItems) {
             const mealPlanItems = generateShoppingListFromMealPlan(location.state.selectedItems);
-            
+
             // Merge existing items with meal plan items, avoid duplicates
             const existingNames = items.map(item => item.name.toLowerCase());
-            const newItems = mealPlanItems.filter(item => 
+            const newItems = mealPlanItems.filter(item =>
                 !existingNames.includes(item.name.toLowerCase())
             );
-            
+
             items = [...items, ...newItems];
         }
-        
-        // Add some sample items if the list is empty (for testing)
-        if (items.length === 0) {
-            items = [
-                {
-                    id: Date.now() + 1,
-                    name: 'Apples',
-                    quantity: 6,
-                    unit: 'piece',
-                    category: 'vegetable',
-                    checked: false,
-                    createdAt: new Date().toISOString()
-                },
-                {
-                    id: Date.now() + 2,
-                    name: 'Milk',
-                    quantity: 2,
-                    unit: 'l',
-                    category: 'dairy',
-                    checked: true,
-                    createdAt: new Date().toISOString()
-                },
-                {
-                    id: Date.now() + 3,
-                    name: 'Bread',
-                    quantity: 1,
-                    unit: 'pack',
-                    category: 'pantry',
-                    checked: false,
-                    createdAt: new Date().toISOString()
-                },
-                {
-                    id: Date.now() + 4,
-                    name: 'Chicken Breast',
-                    quantity: 500,
-                    unit: 'g',
-                    category: 'meat',
-                    checked: true,
-                    createdAt: new Date().toISOString()
-                }
-            ];
-        }
-        
+
         setShoppingItems(items);
     }, [location.state]);
 
@@ -177,6 +149,17 @@ const ShoppingList = () => {
     }, [shoppingItems]);
 
     const addItem = () => {
+        const err = {};
+        if (!newItem.trim()) err.name = ERROR_MESSAGES.REQUIRED;
+        const qErr = validatePositiveNumber(newQuantity);
+        if (qErr) err.quantity = qErr;
+
+        if (Object.keys(err).length > 0) {
+            setAddErrors(err);
+            setAddTouched({ name: true, quantity: true });
+            return;
+        }
+
         if (newItem.trim()) {
             const item = {
                 id: Date.now() + Math.random(),
@@ -192,6 +175,9 @@ const ShoppingList = () => {
             setNewQuantity('1');
             setNewUnit('piece');
             setNewCategory('vegetable');
+            setAddErrors({});
+            setAddTouched({});
+            toast.success("Item added successfully!");
         }
     };
 
@@ -200,27 +186,58 @@ const ShoppingList = () => {
     };
 
     const toggleItem = (id) => {
-        setShoppingItems(shoppingItems.map(item => 
+        setShoppingItems(shoppingItems.map(item =>
             item.id === id ? { ...item, checked: !item.checked } : item
         ));
     };
 
-    const updateItem = (id, field, value) => {
-        setShoppingItems(shoppingItems.map(item => 
-            item.id === id ? { ...item, [field]: value } : item
-        ));
+    const startEdit = (item) => {
+        setEditingId(item.id);
+        setEditName(item.name);
+        setEditQuantity(item.quantity);
+        setEditUnit(item.unit);
+        setEditCategory(item.category);
     };
 
-    const clearCompleted = () => {
-        setShoppingItems(shoppingItems.filter(item => !item.checked));
+    const saveEdit = () => {
+        const err = {};
+        if (!editName.trim()) err.name = ERROR_MESSAGES.REQUIRED;
+        const qErr = validatePositiveNumber(editQuantity);
+        if (qErr) err.quantity = qErr;
+
+        if (Object.keys(err).length > 0) {
+            setEditErrors(err);
+            setEditTouched({ name: true, quantity: true });
+            return;
+        }
+
+        if (editName.trim()) {
+            setShoppingItems(shoppingItems.map(item =>
+                item.id === editingId ? { ...item, name: editName, quantity: parseInt(editQuantity) || 1, unit: editUnit, category: editCategory } : item
+            ));
+            setEditingId(null);
+            setEditName('');
+            setEditQuantity('');
+            setEditUnit('');
+            setEditCategory('');
+            setEditErrors({});
+            setEditTouched({});
+            toast.success("Item updated successfully!");
+        }
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditName('');
+        setEditQuantity('');
+        setEditUnit('');
+        setEditCategory('');
+        setEditErrors({});
+        setEditTouched({});
     };
 
     const clearAll = () => {
         setShoppingItems([]);
-    };
-
-    const clearMealPlanItems = () => {
-        setShoppingItems(shoppingItems.filter(item => !item.fromMealPlan));
     };
 
     const markAllAsPurchased = () => {
@@ -231,24 +248,11 @@ const ShoppingList = () => {
         setShoppingItems(shoppingItems.map(item => ({ ...item, checked: false })));
     };
 
-    const getCategoryItems = (category) => {
-        return shoppingItems.filter(item => item.category === category);
-    };
-
     const getFilteredItems = () => {
-        let filtered = shoppingItems;
-        
-        if (searchTerm) {
-            filtered = filtered.filter(item => 
-                item.name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }
-        
         if (filterCategory !== 'all') {
-            filtered = filtered.filter(item => item.category === filterCategory);
+            return shoppingItems.filter(item => item.category === filterCategory);
         }
-        
-        return filtered;
+        return shoppingItems;
     };
 
     const categories = [
@@ -276,147 +280,125 @@ const ShoppingList = () => {
     ];
 
     const filteredItems = getFilteredItems();
-    const checkedCount = shoppingItems.filter(item => item.checked).length;
-    const totalCount = shoppingItems.length;
-    
-    // Count ingredients from meal plan
-    const mealPlanItems = shoppingItems.filter(item => item.fromMealPlan);
-    const mealPlanCount = mealPlanItems.length;
 
     return (
         <div className="shopping-list-page">
             <header className="shopping-list-header">
-                <h1>🛒 Shopping List</h1>
-                <p>Organize your grocery shopping efficiently</p>
-                {mealPlanCount > 0 && (
-                    <div className="meal-plan-summary">
-                        <span>📋 {mealPlanCount} items from meal plan</span>
-                    </div>
-                )}
+                <h1>Shopping List</h1>
+                {/* Back to meal planning */}
+                <Link to="/meal" className="back-button">
+                    ← Back to Meal Planning
+                </Link>
             </header>
 
             <div className="shopping-list-container">
-                {/* Add new item section */}
-                <div className="add-item-section">
-                    <h2>Add New Item</h2>
-                    <div className="add-item-form">
-                        <input
-                            type="text"
-                            placeholder="Enter item name..."
-                            value={newItem}
-                            onChange={(e) => setNewItem(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && addItem()}
-                            className="item-input"
-                        />
-                        <input
-                            type="number"
-                            min="1"
-                            value={newQuantity}
-                            onChange={(e) => setNewQuantity(e.target.value)}
-                            className="quantity-input"
-                        />
-                        <select 
-                            value={newUnit} 
-                            onChange={(e) => setNewUnit(e.target.value)}
-                            className="unit-select"
-                        >
-                            {units.map(unit => (
-                                <option key={unit.value} value={unit.value}>
-                                    {unit.label}
-                                </option>
-                            ))}
-                        </select>
-                        <select 
-                            value={newCategory} 
-                            onChange={(e) => setNewCategory(e.target.value)}
-                            className="category-select"
-                        >
-                            {categories.map(category => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name}
-                                </option>
-                            ))}
-                        </select>
-                        <button onClick={addItem} className="add-button">
-                            Add Item
-                        </button>
-                    </div>
-                </div>
-
                 {/* Search and filter section */}
-                <div className="search-filter-section">
-                    <div className="search-box">
-                        <input
-                            type="text"
-                            placeholder="Search items..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="search-input"
-                        />
-                    </div>
-                    <div className="filter-buttons">
-                        <button 
-                            className={`filter-btn ${filterCategory === 'all' ? 'active' : ''}`}
-                            onClick={() => setFilterCategory('all')}
-                        >
-                            All Items
-                        </button>
-                        {categories.map(category => (
-                            <button
-                                key={category.id}
-                                className={`filter-btn ${filterCategory === category.id ? 'active' : ''}`}
-                                onClick={() => setFilterCategory(category.id)}
-                                style={{ '--category-color': category.color }}
+                <div className="filter-controls-container">
+                    <div className="filter-controls-grid">
+                        <div className="filter-control-group">
+                            <label className="filter-control-label">
+                                Filter by Category
+                            </label>
+                            <select
+                                value={filterCategory}
+                                onChange={(e) => setFilterCategory(e.target.value)}
+                                className="filter-category-select"
                             >
-                                {category.name}
+                                <option value="all">All Categories</option>
+                                {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="fiilter-control-group">
+                            <button
+                                onClick={() => setShowAddForm(!showAddForm)}
+                                className={`toggle-add-form-btn ${showAddForm ? 'cancel' : 'add'}`}
+                            >
+                                {showAddForm ? <X size={24} /> : <Plus size={24} />}
+                                {showAddForm ? 'Cancel' : 'Add Item'}
                             </button>
-                        ))}
+                        </div>
                     </div>
                 </div>
 
-                {/* Progress section */}
-                <div className="progress-section">
-                    <div className="progress-bar">
-                        <div 
-                            className="progress-fill" 
-                            style={{ width: `${totalCount > 0 ? (checkedCount / totalCount) * 100 : 0}%` }}
-                        ></div>
-                    </div>
-                    <div className="progress-text">
-                        {checkedCount} of {totalCount} items completed
-                        {totalCount > 0 && (
-                            <span className="progress-percentage">
-                                ({Math.round((checkedCount / totalCount) * 100)}%)
-                            </span>
-                        )}
-                    </div>
-                    {totalCount > 0 && (
-                        <div className="progress-details">
-                            <span className="completed-count">✅ {checkedCount} purchased</span>
-                            <span className="remaining-count">⏳ {totalCount - checkedCount} remaining</span>
+                {/* Add new item section */}
+                {showAddForm && (
+                    <div className="add-item-section">
+                        <h2>Add New Item</h2>
+                        <div className="add-item-form">
+                            <div className="form-group-slist" style={{ flex: 2 }}>
+                                <input
+                                    type="text"
+                                    placeholder="Enter item name..."
+                                    value={newItem}
+                                    onChange={(e) => {
+                                        setNewItem(e.target.value);
+                                        if (addErrors.name) setAddErrors(prev => ({ ...prev, name: undefined }));
+                                    }}
+                                    onBlur={() => setAddTouched(prev => ({ ...prev, name: true }))}
+                                    className={`item-input ${addErrors.name && addTouched.name ? 'error-border' : ''}`}
+                                />
+                                <FieldError error={addErrors.name} touched={addTouched.name} />
+                            </div>
+                            <div className="form-group-slist" style={{ flex: 1 }}>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={newQuantity}
+                                    onChange={(e) => {
+                                        setNewQuantity(e.target.value);
+                                        if (addErrors.quantity) setAddErrors(prev => ({ ...prev, quantity: undefined }));
+                                    }}
+                                    onBlur={() => setAddTouched(prev => ({ ...prev, quantity: true }))}
+                                    className={`quantity-input ${addErrors.quantity && addTouched.quantity ? 'error-border' : ''}`}
+                                />
+                                <FieldError error={addErrors.quantity} touched={addTouched.quantity} />
+                            </div>
+                            <select
+                                value={newUnit}
+                                onChange={(e) => setNewUnit(e.target.value)}
+                                className="unit-select"
+                            >
+                                {units.map(unit => (
+                                    <option key={unit.value} value={unit.value}>
+                                        {unit.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                                className="category-select"
+                            >
+                                {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <button onClick={addItem} className="add-button">
+                                Add Item
+                            </button>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )
+                }
 
                 {/* Shopping list items */}
                 <div className="items-section">
                     <div className="section-header">
                         <h2>Shopping Items</h2>
-                        <div className="action-buttons">
+                        <div className="action-buttons-slist">
                             <button onClick={markAllAsPurchased} className="mark-all-btn" title="Mark all items as purchased">
-                                ✅ Mark All Purchased
+                                Mark All Purchased
                             </button>
-                            <button onClick={markAllAsUnpurchased} className="mark-all-btn" title="Mark all items as unpurchased">
-                                ⏳ Mark All Unpurchased
+                            <button onClick={markAllAsUnpurchased} className="clear-btn" title="Mark all items as unpurchased">
+                                Mark All Unpurchased
                             </button>
-                            <button onClick={clearCompleted} className="clear-btn">
-                                Clear Completed
-                            </button>
-                            {mealPlanCount > 0 && (
-                                <button onClick={clearMealPlanItems} className="clear-meal-plan-btn">
-                                    Clear Meal Plan Items
-                                </button>
-                            )}
                             <button onClick={clearAll} className="clear-all-btn">
                                 Clear All
                             </button>
@@ -435,60 +417,123 @@ const ShoppingList = () => {
                                 const category = categories.find(cat => cat.id === item.category);
                                 return (
                                     <div key={item.id} className={`shopping-item ${item.checked ? 'checked' : ''}`}>
-                                        <div className="item-actions">
-                                            <button
-                                                onClick={() => toggleItem(item.id)}
-                                                className={`purchase-btn ${item.checked ? 'purchased' : 'unpurchased'}`}
-                                                title={item.checked ? "Mark as not purchased" : "Mark as purchased"}
-                                            >
-                                                {item.checked ? '✅ Purchased' : '⏳ Mark as Purchased'}
-                                            </button>
-                                        </div>
-                                        <div className="item-info">
-                                            <span className="item-name">
-                                                {item.name}
-                                                {item.fromMealPlan && (
-                                                    <span className="meal-plan-badge">
-                                                        {item.mealType}
+                                        {editingId === item.id ? (
+                                            <div className="edit-mode-container">
+                                                <div className="add-item-form">
+                                                    <div className="form-group-slist" style={{ flex: 2 }}>
+                                                        <input
+                                                            type="text"
+                                                            value={editName}
+                                                            onChange={(e) => {
+                                                                setEditName(e.target.value);
+                                                                if (editErrors.name) setEditErrors(prev => ({ ...prev, name: undefined }));
+                                                            }}
+                                                            onBlur={() => setEditTouched(prev => ({ ...prev, name: true }))}
+                                                            placeholder="Item name"
+                                                            className={`item-input ${editErrors.name && editTouched.name ? 'error-border' : ''}`}
+                                                        />
+                                                        <FieldError error={editErrors.name} touched={editTouched.name} />
+                                                    </div>
+                                                    <div className="form-group-slist" style={{ flex: 1 }}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={editQuantity}
+                                                            onChange={(e) => {
+                                                                setEditQuantity(e.target.value);
+                                                                if (editErrors.quantity) setEditErrors(prev => ({ ...prev, quantity: undefined }));
+                                                            }}
+                                                            onBlur={() => setEditTouched(prev => ({ ...prev, quantity: true }))}
+                                                            placeholder="Quantity"
+                                                            className={`quantity-input ${editErrors.quantity && editTouched.quantity ? 'error-border' : ''}`}
+                                                        />
+                                                        <FieldError error={editErrors.quantity} touched={editTouched.quantity} />
+                                                    </div>
+                                                    <select
+                                                        value={editUnit}
+                                                        onChange={(e) => setEditUnit(e.target.value)}
+                                                        className="unit-select"
+                                                    >
+                                                        {units.map(unit => (
+                                                            <option key={unit.value} value={unit.value}>
+                                                                {unit.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        value={editCategory}
+                                                        onChange={(e) => setEditCategory(e.target.value)}
+                                                        className="category-select"
+                                                    >
+                                                        {categories.map(category => (
+                                                            <option key={category.id} value={category.id}>
+                                                                {category.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="edit-buttons-container">
+                                                    <button
+                                                        onClick={saveEdit}
+                                                        className="save-edit-button"
+                                                        title="Save changes"
+                                                    >
+                                                        <Save size={18} />
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelEdit}
+                                                        className="cancel-edit-button"
+                                                        title="Cancel editing"
+                                                    >
+                                                        <X size={18} />
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="item-actions">
+                                                    <button
+                                                        onClick={() => toggleItem(item.id)}
+                                                        className={`purchase-btn ${item.checked ? 'purchased' : 'unpurchased'}`}
+                                                        title={item.checked ? "Mark as not purchased" : "Mark as purchased"}
+                                                    >
+                                                        {item.checked ? <Check size={24} /> : ' '}
+                                                    </button>
+                                                </div>
+                                                <div className="item-info">
+                                                    <span className="item-name">
+                                                        {item.name} :
+                                                        {item.checked && (
+                                                            <span className="purchased-badge">
+                                                                Purchased
+                                                            </span>
+                                                        )}
                                                     </span>
-                                                )}
-                                                {item.checked && (
-                                                    <span className="purchased-badge">
-                                                        ✅ Purchased
+                                                    <span className="item-category" style={{ color: category?.color }}>
+                                                        <span>{item.quantity}</span>
+                                                        <span>{item.unit}</span>
                                                     </span>
-                                                )}
-                                            </span>
-                                            <span className="item-category" style={{ color: category?.color }}>
-                                                {category?.name}
-                                            </span>
-                                        </div>
-                                        <div className="item-quantity">
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                value={item.quantity}
-                                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                                className="quantity-edit"
-                                            />
-                                            <select
-                                                value={item.unit}
-                                                onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                                                className="unit-edit"
-                                            >
-                                                {units.map(unit => (
-                                                    <option key={unit.value} value={unit.value}>
-                                                        {unit.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <button 
-                                            onClick={() => removeItem(item.id)}
-                                            className="remove-button"
-                                            title="Remove item"
-                                        >
-                                            ×
-                                        </button>
+                                                </div>
+                                                <div className="item-action-buttons">
+                                                    <button
+                                                        onClick={() => startEdit(item)}
+                                                        className="edit-button"
+                                                        title="Edit item"
+                                                    >
+                                                        <Edit2 size={20} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeItem(item.id)}
+                                                        className="remove-button"
+                                                        title="Remove item"
+                                                    >
+                                                        <Trash size={20} />
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -496,12 +541,6 @@ const ShoppingList = () => {
                     )}
                 </div>
 
-                {/* Back to meal planning */}
-                <div className="back-section">
-                    <Link to="/Meal" className="back-button">
-                        ← Back to Meal Planning
-                    </Link>
-                </div>
             </div>
         </div>
     );

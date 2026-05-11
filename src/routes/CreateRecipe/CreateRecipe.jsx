@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo, useContext } from "react";
 import { MdArrowDropDown, MdArrowDropUp, MdEdit } from "react-icons/md";
 import { RiDeleteBin6Fill } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
@@ -8,100 +8,139 @@ import {
   cuisineListDB,
   getCuisineList,
   getIngredientsList,
+  getCookingMethodList,
   ingredientListDB,
-} from "./Config.js";
-import { saveRecipe } from "./data/db/db.js";
+  cookingMethodListDB,
+} from '../../services/recepieApi.js';
+import { recipeApi } from '../../services/recepieApi.js';
+import { UserContext } from "../../context/user.context.jsx";
+import { ERROR_MESSAGES, validatePositiveNumber } from "../../utils/validationRules";
+import FieldError from "../../components/FieldError";
+import { toast } from "react-toastify";
 
 // Create Recipe page
 function CreateRecipe() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const { currentUser } = useContext(UserContext); // <-- add this line
 
-  //SectionRecipeDescription
-  const [recipeName, setRecipeName] = useState("");
-  const [cuisine, setCuisine] = useState("");
-  const [preparationTime, setPreparationTime] = useState("");
-  const [totalServings, setTotalServings] = useState("");
+  // Consolidated form data state (similar to Appointment component pattern)
+  const [formData, setFormData] = useState({
+    // Recipe Description
+    recipeName: "",
+    cuisine: "",
+    // Cooking Details
+    preparationTime: "",
+    totalServings: "",
+    cookingMethod: "",
+    // Current Ingredient being added
+    ingredientCategory: "",
+    ingredient: "",
+    ingredientQuantity: "",
+    // image file (optional)
+    imageFile: null,
+    // Current Instruction being added
+    currentInstruction: "",
+  });
 
-  //SectionIngredients
-  const [ingredientCategory, setIngredientCategory] = useState("");
-  const [ingredient, setIngredient] = useState("");
-  const [ingredientQuantity, setIngredientQuantity] = useState("");
-  const [instructions, setInstructions] = useState("");
+  // Arrays for ingredients and instructions lists
   const [instruction, setInstruction] = useState([]);
   const [tableData, setRecipeTable] = useState([]);
   const [showIngredients, setShowIngredients] = useState(true);
-  //const [isEditing, setIsEditing] = useState("");
 
-  const [ingredients, setIngredients] = useState([
-    {
-      ingredientCategory: "",
-      ingredient: "",
-      ingredientQuantity: "",
-    },
-  ]);
+  const [ingredients, setIngredients] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   //==================== Handle changes to the fields ====================
 
-  //--------------- Recipe Description Section -----------------
-
-  //Handle changes to the Recipe Name field
-  const handleRecipeNameChange = (value) => {
-    setRecipeName(value);
-    //console.log("Recipe Name: " + value);
+  // Generic field change handler - works for any field in formData
+  const handleFieldChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    // Clear error on change
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
   };
 
-  //Handle changes to the Cuisine field
-  const handleCuisineChange = (value) => {
-    setCuisine(value);
-    //console.log("Cuisine: " + value);
-  };
+  // Replace the previous top-level fetch calls with local state + effect
+  const [cuisines, setCuisines] = useState(cuisineListDB);
+  const [ingredientsList, setIngredientsList] = useState(ingredientListDB);
+  const [cookingMethods, setCookingMethods] = useState(cookingMethodListDB);
 
-  //--------------- Cooking Details Section -----------------
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [c, ing, m] = await Promise.all([
+          getCuisineList(),
+          getIngredientsList(),
+          getCookingMethodList(),
+        ]);
+        if (!mounted) return;
+        if (c) setCuisines(c);
+        if (ing) setIngredientsList(ing);
+        if (m) setCookingMethods(m);
+      } catch (err) {
+        // silent fail — keep legacy lists
+        console.error("recipe lists fetch failed", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  //Handle changes to the Preparation Time field
-  const handlePreparationTimeChange = (value) => {
-    setPreparationTime(value);
-    console.log("Preparation Time: " + value);
-  };
+  // Memoize mapped options to avoid remapping on every render
+  const cuisineOptions = useMemo(() => {
+    const list = cuisines || [];
+    const unique = Array.from(new Map(list.filter(Boolean).map((c) => [c.id, c])).values());
+    return unique.filter((c) => c.label).map((c) => (
+      <option key={`${c.id}-${c.label}`} value={c.label}>
+        {c.label}
+      </option>
+    ));
+  }, [cuisines]);
 
-  //Handle changes to the Total Servings field
-  const handleTotalServingsChanges = (value) => {
-    setTotalServings(value);
-    console.log("Total Servings: " + value);
-  };
+  const ingredientOptions = useMemo(() => {
+    const list = ingredientsList?.ingredient || [];
+    const unique = Array.from(new Map(list.filter(Boolean).map((i) => [i.id, i])).values());
+    return unique.filter((i) => i.label).map((i) => (
+      <option key={`${i.id}-${i.label}`} value={i.label}>
+        {i.label}
+      </option>
+    ));
+  }, [ingredientsList]);
 
-  //--------------- Ingredients Section -----------------
-
-  const handleIngredientCategoryChange = (value) => {
-    setIngredientCategory(value);
-    console.log("setIngredientCategory: " + value);
-  };
-
-  const handleIngredientQuantityChange = (value) => {
-    setIngredientQuantity(value);
-    console.log("setIngredientQuantity: " + value);
-  };
-
-  const handleIngredientChange = (value) => {
-    setIngredient(value);
-    console.log("setIngredient: " + value);
-  };
-
-  /*   const handleIsEditingChange = (value) => {
-    setIsEditing(value);
-    console.log("isEditing: " + value);
-  }; */
-
-  if (cuisineListDB.length < 2) {
-    getCuisineList();
-  }
-
-  if (ingredientListDB.ingredient.length < 2) {
-    getIngredientsList();
-  }
+  const cookingMethodOptions = useMemo(() => {
+    const list = cookingMethods || [];
+    const unique = Array.from(new Map(list.filter(Boolean).map((m) => [m.id, m])).values());
+    return unique.filter((m) => m.label || m.value).map((m) => (
+      <option key={`${m.id}-${m.label ?? m.value}`} value={m.value ?? m.label}>
+        {m.label ?? m.value}
+      </option>
+    ));
+  }, [cookingMethods]);
 
   const handelIngredientsInTable = () => {
+    const { ingredientCategory, ingredient, ingredientQuantity } = formData;
+
+    // Validate ingredient fields before adding
+    const ingErrors = {};
+    if (!ingredientCategory) ingErrors.ingredientCategory = ERROR_MESSAGES.REQUIRED;
+    if (!ingredient) ingErrors.ingredient = ERROR_MESSAGES.REQUIRED;
+    const qtyErr = validatePositiveNumber(ingredientQuantity);
+    if (qtyErr) ingErrors.ingredientQuantity = qtyErr;
+
+    if (Object.keys(ingErrors).length > 0) {
+      setErrors(prev => ({ ...prev, ...ingErrors }));
+      setTouched(prev => ({ ...prev, ingredientCategory: true, ingredient: true, ingredientQuantity: true }));
+      return;
+    }
+
     setIngredients((prev) => [
       ...prev,
       { ingredientCategory, ingredient, ingredientQuantity },
@@ -110,19 +149,30 @@ function CreateRecipe() {
       ...prev,
       { ingredientCategory, ingredient, ingredientQuantity },
     ]);
-    setIngredientCategory("");
-    setIngredient("");
-    setIngredientQuantity("");
+    setFormData((prev) => ({
+      ...prev,
+      ingredientCategory: "",
+      ingredient: "",
+      ingredientQuantity: "",
+    }));
+    // Clear ingredient related errors
+    setErrors(prev => ({
+      ...prev,
+      ingredientCategory: undefined,
+      ingredient: undefined,
+      ingredientQuantity: undefined
+    }));
+    setTouched(prev => ({
+      ...prev,
+      ingredientCategory: false,
+      ingredient: false,
+      ingredientQuantity: false
+    }));
   };
 
-  const handleRemoveTableData = () => {};
-
-  //--------------- Instructions Section -----------------
-
-  //Handle changes to the Instructions field
-  const handleInstructionsChange = (value) => {
-    setInstructions(value);
-    //console.log("Instructions: " + value);
+  const handleRemoveTableData = (index) => {
+    setIngredients((prev) => prev.filter((_, i) => i !== index));
+    setRecipeTable((prev) => prev.filter((_, i) => i !== index));
   };
 
   //==================== Send data to the Supabase ====================
@@ -130,24 +180,43 @@ function CreateRecipe() {
     event.preventDefault();
 
     try {
-      const file = fileInputRef.current.files[0];
-
-      if (!isFormValid()) {
+      const validationErrors = validateForm();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
         setAttemptedSubmit(true);
+
+        // Focus first error
+        const firstErrorKey = Object.keys(validationErrors)[0];
+        const element = document.getElementsByName(firstErrorKey)[0];
+        if (element) {
+          element.focus();
+        }
+
         window.scrollTo(0, 0);
+        toast.error("Please fix the errors in the form.");
         return;
       }
 
       setAttemptedSubmit(false);
 
+      const file = fileInputRef.current.files[0];
+
       const ingredientId = [];
-      const ingredientQuantity = [];
+      const ingredientQuantityList = [];
       let cuisineId;
-      const userId = 15;
+      let cookingMethodId;
+      const userId = currentUser?.id ?? recipeApi.getCurrentUserId?.();
 
       cuisineListDB.forEach((element) => {
-        if (cuisine === element.label) {
+        if (formData.cuisine === element.label) {
           cuisineId = element.id;
+        }
+      });
+
+      cookingMethodListDB.forEach((element) => {
+        if (formData.cookingMethod === element.label) {
+          cookingMethodId = element.id;
         }
       });
 
@@ -155,86 +224,99 @@ function CreateRecipe() {
         ingredientListDB.ingredient.forEach((element) => {
           if (row.ingredient === element.label) {
             ingredientId.push(element.id);
-            ingredientQuantity.push(parseInt(row.ingredientQuantity));
+            ingredientQuantityList.push(parseInt(row.ingredientQuantity));
           }
         });
       });
+
+      // Format data to match backend expectations
+      const recipeData = {
+        user_id: userId,
+        recipe_name: formData.recipeName,
+        cuisine_id: cuisineId,
+        preparation_time: parseInt(formData.preparationTime),
+        total_servings: parseInt(formData.totalServings),
+        ingredient_id: ingredientId,
+        ingredient_quantity: ingredientQuantityList,
+        cooking_method_id: cookingMethodId,
+        instructions: instruction.join('\n'),
+      };
 
       if (file) {
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Image = reader.result;
 
-          const formData = {
-            user_id: userId,
-            recipe_name: recipeName,
-            cuisine_id: cuisineId,
-            preparation_time: preparationTime,
-            total_servings: totalServings,
-            ingredient_id: ingredientId,
-            ingredient_quantity: ingredientQuantity,
-            instructions: instructions || "empty",
-            image: base64Image,
+          const recipeDataWithImage = {
+            ...recipeData,
+            recipe_image: base64Image,
           };
 
-          await saveRecipe(formData);
-          //alert("Recipe saved locally in IndexedDB!");
+          await recipeApi.createRecepie(recipeDataWithImage);
+          window.dispatchEvent(new Event("recipeUpdated"));
         };
         reader.readAsDataURL(file);
       } else {
-        const formData = {
-          user_id: userId,
-          recipe_name: recipeName,
-          cuisine_id: cuisineId,
-          preparation_time: preparationTime,
-          total_servings: totalServings,
-          ingredient_id: ingredientId,
-          ingredient_quantity: ingredientQuantity,
-          instructions: instructions,
-          image: "",
+        const recipeDataWithoutImage = {
+          ...recipeData,
         };
 
-        await saveToIndexedDB(formData);
+        console.log(recipeDataWithoutImage)
+        await recipeApi.createRecepie(recipeDataWithoutImage);
         window.dispatchEvent(new Event("recipeUpdated"));
 
-        fetch("https://nutrihelp-backend-deployment.onrender.com/api/recipe/", {
-          method: "POST",
-          body: JSON.stringify(formData),
-          headers: {
-            Origin: "http://localhost:3000/",
-            "Content-Type": "application/json",
-          },
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.statusCode === 201) {
-              console.log("Data successfully written to Supabase!");
-              //alert("Recipe Creation was successful!");
-              navigate("/searchRecipes");
-            } else {
-              console.log(data);
-              alert("Recipe Creation was unsuccessful! Please try Again");
-            }
-          })
-          .catch((error) => {
-            console.error("Error sending message:", error);
-          });
+        // fetch("http://localhost:80/api/recipe/", {
+        //   method: "POST",
+        //   body: JSON.stringify(recipeDataWithoutImage),
+        //   headers: {
+        //     Origin: "http://localhost:3000/",
+        //     "Content-Type": "application/json",
+        //   },
+        // })
+        //   .then((response) => response.json())
+        //   .then((data) => {
+        //     if (data.statusCode === 201) {
+        //       console.log("Data successfully written to Supabase!");
+        //       //alert("Recipe Creation was successful!");
+        //       navigate("/searchRecipes");
+        //     } else {
+        //       console.log(data);
+        //       alert("Recipe Creation was unsuccessful! Please try Again");
+        //     }
+        //   })
+        //   .catch((error) => {
+        //     console.error("Error sending message:", error);
+        //   });
       }
     } catch (error) {
       console.error("Error writing document:", error);
     }
-    setInstructions("");
-    navigate("/recipe");
+    setFormData((prev) => ({ ...prev, currentInstruction: "" }));
+    // navigate("/recipe");
   };
 
-  // Function to validate all fields are filled
-  const isFormValid = () => {
-    return (
-      recipeName && cuisine && totalServings && preparationTime && tableData
-      //instructions
-      // isImageAdded
-    );
+  // Function to validate all fields
+  const validateForm = () => {
+    const err = {};
+    if (!formData.recipeName.trim()) err.recipeName = ERROR_MESSAGES.REQUIRED;
+    if (!formData.cuisine) err.cuisine = ERROR_MESSAGES.REQUIRED;
+
+    const servingsErr = validatePositiveNumber(formData.totalServings);
+    if (servingsErr) err.totalServings = servingsErr;
+
+    const timeErr = validatePositiveNumber(formData.preparationTime);
+    if (timeErr) err.preparationTime = timeErr;
+
+    if (!formData.cookingMethod) err.cookingMethod = ERROR_MESSAGES.REQUIRED;
+
+    if (!tableData || tableData.length === 0) {
+      err.tableData = "At least one ingredient is required";
+    }
+
+    return err;
   };
+
+  const isFormValid = () => Object.keys(validateForm()).length === 0;
 
   const [isImageAdded, setIsImageAdded] = useState(false);
 
@@ -244,84 +326,12 @@ function CreateRecipe() {
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  /*   const fileInputRef = useRef(null);
-
-  const [recipeName, setRecipeName] = useState("");
-  const [cuisineType, setCuisineType] = useState("");
-  const [preparationTime, setPreparationTime] = useState("");
-  const [totalServings, setTotalServings] = useState("");
-  const [image, setImage] = useState(null);
-  const [category, setCategory] = useState("");
-  const [ingredient, setIngredient] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [step, setStep] = useState("");
-
-  const [instructions, setInstructions] = useState([]);
-  const [ingredients, setIngredients] = useState([
-    {
-      category: "",
-      ingredient: "",
-      quantity: "",
-    },
-  ]); */
-
-  /*   const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      // Step 1: Upload image to Supabase Storage
-      let imageUrl = null;
-      if (image) {
-        const fileExt = image.name.split(".").pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const filePath = `Create Recipe/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("my-recipe-page")
-          .upload(filePath, image);
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from("my-recipe-page")
-          .getPublicUrl(filePath);
-
-        imageUrl = publicUrlData?.publicUrl;
-      }
-
-      // Step 2: Insert recipe data into Supabase
-      const { data, error } = await supabase.from("my-recipe").insert([
-        {
-          creater_id: 1,
-          recipeName,
-          cuisineType,
-          preparationTime,
-          totalServings,
-          ingredients, // already an array of objects
-          instructions, // already an array of strings
-          image_url: imageUrl || null, // use the uploaded image URL or null if no image was uploaded
-        },
-      ]);
-
-      if (error) {
-        console.error("Insert error:", error.message);
-        alert("Failed to save recipe.");
-      } else {
-        alert("Recipe created successfully!");
-        console.log("Inserted recipe:", data);
-      }
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      alert("An unexpected error occurred while saving your recipe.");
-    }
-  }; */
-
   //==================== Render the component ====================
   return (
     <FramerClient>
       <div
         id="no-bg"
-        className="w-full flex justify-center items-center bg-purple-100"
+        className="w-full flex justify-center items-center bg-[#FFFEFE]"
       >
         <form
           onSubmit={sendDataToSupabase}
@@ -330,7 +340,7 @@ function CreateRecipe() {
         >
           <div
             id="no-bg"
-            className="w-full sm:w-[95%] md:w-[90%] lg:w-[85%] xl:w-[80%] max-w-[1400px] bg-[#FFFEFE] rounded-lg flex flex-col sm:flex-row"
+            className="w-full sm:w-[95%] md:w-[90%] lg:w-[85%] xl:w-[80%] max-w-[1400px] bg-[#FFFFFF] rounded-lg flex flex-col sm:flex-row  border border-[#005BBB]"
           >
             {/* Main Form Area - full width on mobile, constrained on larger screens */}
             <div
@@ -340,12 +350,12 @@ function CreateRecipe() {
               {/* Header - flex column on mobile, row on sm+ */}
               <div
                 id="no-bg"
-                className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 md:mb-10 lg:mb-12"
+              //className="flex flex-col bg-[#E8F1FF] sm:flex-row justify-between items-center mb-6 sm:mb-8 md:mb-10 lg:mb-12"
               >
                 <div id="no-bg" className="w-full flex justify-center">
                   <h1
                     id="no-bg"
-                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-medium text-center sm:text-left mb-4 sm:mb-0"
+                    className="font-[Arial] text-2xl sm:text-3xl md:text-4xl lg:text-5xl  font-medium text-center sm:text-left mb-4 sm:mb-0 text-[#1A1A1A]"
                   >
                     Create Recipe
                   </h1>
@@ -354,17 +364,17 @@ function CreateRecipe() {
               {/* Recipe Description Section */}
               <div
                 id="no-bg"
-                className="bg-purple-100 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8"
+                className="bg-[#d8edfd] rounded-lg p-4 sm:p-6 mb-6 sm:mb-8  border border-[#005BBB]"
               >
                 <h2
                   id="no-bg"
-                  className="text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
+                  className="font-[Arial] text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
                 >
                   Recipe Description
                 </h2>
                 <div
                   id="no-bg"
-                  className="flex flex-col sm:flex-row gap-4 sm:gap-6 md:gap-8"
+                  className="flex flex-col gap-6 w-full"
                 >
                   <div
                     id="no-bg"
@@ -372,50 +382,58 @@ function CreateRecipe() {
                   >
                     <div
                       id="no-bg"
-                      className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 w-2/3"
+                      className="flex flex-col w-full gap-2"
                     >
                       <label
                         id="no-bg"
-                        className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                        className="font-[Arial] text-lg sm:text-base md:text-lg "
                       >
                         Recipe Name
                       </label>
                       <input
                         id="no-bg"
-                        className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
+                        name="recipeName"
+                        className={`w-full rounded-xl h-10 sm:h-12 border px-4 ${errors.recipeName && touched.recipeName ? 'border-red-500' : 'border-gray-400'}`}
                         placeholder="Enter Recipe Name"
-                        value={recipeName}
-                        onChange={(e) => handleRecipeNameChange(e.target.value)}
+                        value={formData.recipeName}
+                        onChange={(e) => handleFieldChange("recipeName", e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, recipeName: true }))}
                       />
+                      <FieldError error={errors.recipeName} touched={touched.recipeName} />
                     </div>
 
                     <div
                       id="no-bg"
-                      className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 w-2/3"
+                      className="flex flex-col w-full gap-2"
                     >
                       <label
                         id="no-bg"
-                        className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                        className="font-[Arial] text-sm sm:text-base md:text-lg"
                       >
                         Cuisine Type
                       </label>
-                      <input
+                      <select
                         id="no-bg"
-                        className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
-                        placeholder="Enter Cuisine Type"
-                        value={cuisine}
-                        onChange={(e) => handleCuisineChange(e.target.value)}
-                      />
+                        name="cuisine"
+                        className={`w-full rounded-xl h-10 sm:h-12 border px-4 bg-white ${errors.cuisine && touched.cuisine ? 'border-red-500' : 'border-gray-400'}`}
+                        value={formData.cuisine}
+                        onChange={(e) => handleFieldChange("cuisine", e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, cuisine: true }))}
+                      >
+                        <option value="">Select Cuisine Type</option>
+                        {cuisineOptions}
+                      </select>
+                      <FieldError error={errors.cuisine} touched={touched.cuisine} />
                     </div>
                   </div>
 
                   <div
                     id="no-bg"
-                    className="flex flex-col sm:flex-row sm:items-center justify-between sm:justify-end gap-4 sm:gap-6 sm:w-1/3"
+                    className="flex flex-col w-full gap-3 mt-2"
                   >
                     <label
                       id="no-bg"
-                      className="text-sm sm:text-base md:text-lg sm:mr-4"
+                      className="font-[Arial] text-sm sm:text-base md:text-lg sm:mr-4"
                     >
                       Add Image
                     </label>
@@ -434,7 +452,7 @@ function CreateRecipe() {
                     <label
                       htmlFor="file-upload"
                       id="no-bg"
-                      className="bg-[#BA49E7] text-white px-4 sm:px-6 py-3 sm:py-4 rounded-full font-semibold text-sm sm:text-base cursor-pointer"
+                      className="font-[Arial] bg-[#005BBB] text-white px-4 sm:px-6 py-3 sm:py-6 rounded-full font-semibold text-sm sm:text-base cursor-pointer w-fit"
                     >
                       Upload
                     </label>
@@ -444,55 +462,89 @@ function CreateRecipe() {
               {/* Cooking Description Section */}
               <div
                 id="no-bg"
-                className="bg-purple-100 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8"
+                className="bg-[#d8edfd] rounded-lg p-4 sm:p-6 mb-6 sm:mb-8  border border-[#005BBB]"
               >
                 <h2
                   id="no-bg"
-                  className="text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
+                  className="font-[Arial] text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
                 >
                   Cooking Description
                 </h2>
-                <div id="no-bg" className="flex flex-col gap-4 sm:gap-6 w-full">
+                <div id="no-bg"
+                  className="flex flex-col gap-6 w-full"
+                >
                   <div
                     id="no-bg"
-                    className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 w-1/2"
+                    className="flex flex-col w-full gap-2"
                   >
                     <label
                       id="no-bg"
-                      className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                      className="font-[Arial] text-lg sm:text-base md:text-lg"
                     >
                       Preparation Time
                     </label>
                     <input
                       id="no-bg"
-                      className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
-                      placeholder="Enter Preparation Time"
-                      value={preparationTime}
+                      name="preparationTime"
+                      className={`w-full rounded-xl h-10 sm:h-12 border px-4 ${errors.preparationTime && touched.preparationTime ? 'border-red-500' : 'border-gray-400'}`}
+                      placeholder="e.g.,   30 minutes"
+                      value={formData.preparationTime}
                       onChange={(e) =>
-                        handlePreparationTimeChange(e.target.value)
+                        handleFieldChange("preparationTime", e.target.value)
                       }
+                      onBlur={() => setTouched(prev => ({ ...prev, preparationTime: true }))}
                     />
+                    <FieldError error={errors.preparationTime} touched={touched.preparationTime} />
                   </div>
 
                   <div
                     id="no-bg"
-                    className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 w-1/2"
+                    className="flex flex-col w-full gap-2"
                   >
                     <label
                       id="no-bg"
-                      className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                      className="font-[Arial] text-sm sm:text-base md:text-lg"
                     >
                       Total Servings
                     </label>
                     <input
                       id="no-bg"
-                      className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
-                      placeholder="Enter Total Servings"
-                      value={totalServings}
+                      name="totalServings"
+                      className={`w-full rounded-xl h-10 sm:h-12 border px-4 ${errors.totalServings && touched.totalServings ? 'border-red-500' : 'border-gray-400'}`}
+                      placeholder="e.g.,  2 servings"
+                      value={formData.totalServings}
                       onChange={(e) =>
-                        handleTotalServingsChanges(e.target.value)
+                        handleFieldChange("totalServings", e.target.value)
                       }
+                      onBlur={() => setTouched(prev => ({ ...prev, totalServings: true }))}
                     />
+                    <FieldError error={errors.totalServings} touched={touched.totalServings} />
+                  </div>
+
+                  <div
+                    id="no-bg"
+                    className="flex flex-col w-full gap-2"
+                  >
+                    <label
+                      id="no-bg"
+                      className="font-[Arial] text-sm sm:text-base md:text-lg"
+                    >
+                      Cooking Method
+                    </label>
+                    <select
+                      id="no-bg"
+                      name="cookingMethod"
+                      className={`w-full rounded-xl h-10 sm:h-12 border px-4 bg-white ${errors.cookingMethod && touched.cookingMethod ? 'border-red-500' : 'border-gray-400'}`}
+                      value={formData.cookingMethod}
+                      onChange={(e) =>
+                        handleFieldChange("cookingMethod", e.target.value)
+                      }
+                      onBlur={() => setTouched(prev => ({ ...prev, cookingMethod: true }))}
+                    >
+                      <option value="">Select Cooking Method</option>
+                      {cookingMethodOptions}
+                    </select>
+                    <FieldError error={errors.cookingMethod} touched={touched.cookingMethod} />
                   </div>
                 </div>
               </div>
@@ -500,12 +552,12 @@ function CreateRecipe() {
               {/* Ingredients Section */}
               <div
                 id="no-bg"
-                className="bg-purple-100 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8"
+                className="bg-[#d8edfd] rounded-lg p-4 sm:p-6 mb-6 sm:mb-8  border border-[#005BBB]"
               >
                 <div className="w-full flex justify-between items-center">
                   <h2
                     id="no-bg"
-                    className="text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
+                    className="font-[Arial] text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
                   >
                     Ingredients
                   </h2>
@@ -523,19 +575,20 @@ function CreateRecipe() {
                     />
                   )}
                 </div>
+                <FieldError error={errors.tableData} touched={attemptedSubmit} />
                 {showIngredients && (
                   <FramerClient>
                     <div
                       id="no-bg"
-                      className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-4 sm:mb-6"
+                      className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-4 sm:mb-6"
                     >
                       <div
                         id="no-bg"
-                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:w-1/2"
+                        className="flex flex-col w-full sm:w-1/2"
                       >
                         <label
                           id="no-bg"
-                          className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                          className="font-[Arial] text-sm sm:text-base md:text-lg mb-1"
                         >
                           Category
                         </label>
@@ -544,9 +597,9 @@ function CreateRecipe() {
                           className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
                           defaultValue=""
                           onChange={(e) =>
-                            handleIngredientCategoryChange(e.target.value)
+                            handleFieldChange("ingredientCategory", e.target.value)
                           }
-                          value={ingredientCategory}
+                          value={formData.ingredientCategory}
                         >
                           <option value="" disabled>
                             Select one
@@ -558,55 +611,61 @@ function CreateRecipe() {
                           <option value="dairy">Dairy</option>
                           <option value="spices">Spices</option>
                         </select>
+                        <FieldError error={errors.ingredientCategory} touched={touched.ingredientCategory} />
                       </div>
 
                       <div
                         id="no-bg"
-                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:w-1/2"
+                        className="flex flex-col w-full sm:w-1/2"
                       >
                         <label
                           id="no-bg"
-                          className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                          className="font-[Arial] text-lg sm:text-base md:text-lg mb-2"
                         >
-                          Ingredient
+                          Ingredient Name
                         </label>
-                        <input
+                        <select
                           id="no-bg"
-                          className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
-                          placeholder="Enter Ingredient"
-                          value={ingredient}
+                          className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
+                          value={formData.ingredient}
                           onChange={(e) =>
-                            handleIngredientChange(e.target.value)
+                            handleFieldChange("ingredient", e.target.value)
                           }
-                        />
+                        >
+                          <option value="">Select Ingredient</option>
+                          {ingredientOptions}
+                        </select>
+                        <FieldError error={errors.ingredient} touched={touched.ingredient} />
                       </div>
                     </div>
 
                     <div
                       id="no-bg"
-                      className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 sm:mb-8 w-full"
+                      className="flex flex-col gap-4 sm:gap-6 mb-6 sm:mb-8 w-full"
                     >
                       <div
                         id="no-bg"
-                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-0 sm:w-1/2"
+                        className="flex flex-col w-full sm:w-1/2"
                       >
                         <label
                           id="no-bg"
-                          className="w-full sm:w-1/3 text-sm sm:text-base md:text-lg"
+                          className="font-[Arial] text-lg sm:text-base md:text-lg mb-1"
                         >
                           Quantity
                         </label>
-                        <div className="flex items-center w-full sm:w-2/3">
+                        <div className="flex items-center w-full sm:w-2/3 space-x-2">
                           <input
                             id="no-bg"
                             //list="units"
                             className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
                             defaultValue=""
-                            value={ingredientQuantity}
+                            value={formData.ingredientQuantity}
                             onChange={(e) =>
-                              handleIngredientQuantityChange(e.target.value)
+                              handleFieldChange("ingredientQuantity", e.target.value)
                             }
+                            onBlur={() => setTouched(prev => ({ ...prev, ingredientQuantity: true }))}
                           />
+                          <FieldError error={errors.ingredientQuantity} touched={touched.ingredientQuantity} />
                           {/*      <datalist id="units">
                           <option value="ml" />
                           <option value="g" />
@@ -616,12 +675,12 @@ function CreateRecipe() {
                         </datalist> */}
                           <select
                             id="no-bg"
-                            className="w-2/3 sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
+                            className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
                             defaultValue=""
-                            /*   value={ingredientQuantity}
-                            onChange={(e) =>
-                              handleIngredientQuantityChange(e.target.value)
-                            } */
+                          /*   value={ingredientQuantity}
+                          onChange={(e) =>
+                            handleIngredientQuantityChange(e.target.value)
+                          } */
                           >
                             <option value="" disabled>
                               Select one
@@ -637,12 +696,12 @@ function CreateRecipe() {
 
                       <div
                         id="no-bg"
-                        className="flex items-center justify-end sm:justify-end sm:w-1/2"
+                        className="flex items-center justify-start sm:justify-start sm:w-1/2"
                       >
                         <button
                           type="button"
                           id="no-bg"
-                          className="bg-[#BA49E7] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base"
+                          className="font-[Arial] bg-[#005BBB] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base"
                           onClick={() => handelIngredientsInTable()}
                         >
                           Add
@@ -654,29 +713,29 @@ function CreateRecipe() {
                         id="no-bg"
                         className="min-w-full border border-gray-300"
                       >
-                        <thead id="no-bg" className="bg-[#6F42C1] text-white">
+                        <thead id="no-bg" className="bg-[#005BBB] text-white">
                           <tr>
                             <th
                               id="no-bg"
-                              className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
+                              className="font-[Arial] border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
                             >
                               Category
                             </th>
                             <th
                               id="no-bg"
-                              className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
+                              className="font-[Arial] border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
                             >
                               Ingredient
                             </th>
                             <th
                               id="no-bg"
-                              className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
+                              className="font-[Arial] border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
                             >
                               Quantity
                             </th>
                             <th
                               id="no-bg"
-                              className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
+                              className="font-[Arial] border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
                             >
                               Actions
                             </th>
@@ -737,13 +796,12 @@ function CreateRecipe() {
                                         id="no-bg"
                                         className="text-blue-500 mr-2 cursor-pointer"
                                         onClick={() => {
-                                          setIngredientCategory(
-                                            item.ingredientCategory
-                                          );
-                                          setIngredient(item.ingredient);
-                                          setIngredientQuantity(
-                                            item.ingredientQuantity
-                                          );
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            ingredientCategory: item.ingredientCategory,
+                                            ingredient: item.ingredient,
+                                            ingredientQuantity: item.ingredientQuantity,
+                                          }));
                                           setIngredients((prev) =>
                                             prev.filter((_, i) => i !== index)
                                           );
@@ -769,11 +827,11 @@ function CreateRecipe() {
               {/* Instructions Section */}
               <div
                 id="no-bg"
-                className="bg-purple-100 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8 w-full"
+                className="bg-[#d8edfd] rounded-lg p-4 sm:p-6 mb-6 sm:mb-8 w-full  border border-[#005BBB]"
               >
                 <h2
                   id="no-bg"
-                  className="text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
+                  className="font-[Arial] text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6"
                 >
                   Instructions
                 </h2>
@@ -785,11 +843,11 @@ function CreateRecipe() {
                           id="no-bg"
                           className="w-full flex flex-col justify-start sm:flex-row mb-4 sm:mb-6"
                         >
-                          <div id="no-bg" className="w-full sm:w-1/4">
+                          <div id="no-bg" className="w-full sm:w-1/6">
                             <button
                               type="button"
                               id="no-bg"
-                              className="w-full bg-[#6F42C1] text-white py-2 sm:py-3 px-4 font-semibold text-sm sm:text-base"
+                              className="w-full bg-[#005BBB] text-white py-2 sm:py-3 px-4 font-semibold text-sm sm:text-base"
                             >
                               Step {index + 1}:
                             </button>
@@ -812,7 +870,10 @@ function CreateRecipe() {
                               />
                               <MdEdit
                                 onClick={() => {
-                                  setInstructions(item);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    currentInstruction: item,
+                                  }));
                                   setInstruction((prev) =>
                                     prev.filter((_, i) => i !== index)
                                   );
@@ -829,13 +890,13 @@ function CreateRecipe() {
                 <FramerClient>
                   <div
                     id="no-bg"
-                    className="flex flex-col sm:flex-row gap-2 sm:gap-0 mb-4 sm:mb-6  w-full justify-center items-center"
+                    className="w-full flex flex-col justify-start sm:flex-row mb-4 sm:mb-6"
                   >
-                    <div id="no-bg" className="w-full sm:w-1/4">
+                    <div id="no-bg" className="w-full sm:w-1/6">
                       <button
                         type="button"
                         id="no-bg"
-                        className="w-full bg-[#6F42C1] text-white py-2 sm:py-3 px-4 font-semibold text-sm sm:text-base"
+                        className="w-full bg-[#005BBB] text-white py-2 sm:py-3 px-4 font-semibold text-sm sm:text-base"
                       >
                         Step {instruction.length + 1}:
                       </button>
@@ -844,87 +905,27 @@ function CreateRecipe() {
                       id="no-bg"
                       className="w-full -ml-[8px] sm:w-3/4 border border-gray-400 py-2 sm:py-3 px-4"
                       placeholder="Enter step by step instructions here..."
-                      value={instructions}
-                      onChange={(e) => handleInstructionsChange(e.target.value)}
+                      value={formData.currentInstruction}
+                      onChange={(e) => handleFieldChange("currentInstruction", e.target.value)}
                     />
                   </div>
 
-                  <div id="no-bg" className="flex justify-end">
+                  <div id="no-bg"
+                    className="flex items-center justify-start sm:justify-start sm:w-1/2"
+                  >
                     <button
                       id="no-bg"
                       type="button"
-                      className="bg-[#BA49E7] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base"
+                      className="font-[Arial] bg-[#005BBB] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base"
                       onClick={() => {
-                        setInstruction((prev) => [...prev, instructions]);
-                        setInstructions("");
+                        setInstruction((prev) => [...prev, formData.currentInstruction]);
+                        setFormData((prev) => ({ ...prev, currentInstruction: "" }));
                       }}
                     >
                       Add
                     </button>
                   </div>
                 </FramerClient>
-
-                {/* {instruction.length > 0 && (
-                  <div id="no-bg" className="overflow-x-auto mt-4">
-                    <table
-                      id="no-bg"
-                      className="min-w-full border border-gray-300"
-                    >
-                      <thead id="no-bg" className="bg-[#6F42C1] text-white">
-                        <tr>
-                          <th
-                            id="no-bg"
-                            className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
-                          >
-                            Step
-                          </th>
-                          <th
-                            id="no-bg"
-                            className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
-                          >
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {instruction.map((item, index) => (
-                          <motion.tr
-                            id="no-bg"
-                            className="bg-[#F4F4F4]"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <td
-                              id="no-bg"
-                              className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
-                            >
-                              {item}
-                            </td>
-                            <td
-                              id="no-bg"
-                              className="border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base"
-                            >
-                              <button
-                                id="no-bg"
-                                className="text-red-500 !bg-transparent"
-                                type="button"
-                                onClick={() => {
-                                  setInstruction((prev) =>
-                                    prev.filter((_, i) => i !== index)
-                                  );
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </motion.tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )} */}
               </div>
 
               {/* Submit Button */}
@@ -933,10 +934,10 @@ function CreateRecipe() {
                   type="submit"
                   id="no-bg"
                   // disabled={!instructions.trim()}
-                  className="bg-[#4CAF50] text-white px-8 sm:px-12 py-3 sm:py-4 rounded-full font-semibold text-lg sm:text-xl md:text-2xl w-full sm:w-auto"
+                  className="font-[Arial] bg-[#005BBB] text-white w-full max-w-xs px-8 py-3 rounded-full font-semibold text-lg shadow-xl shadow-blue-800/50  hover:bg-[#003f8a] transition duration-300"
                   onClick={sendDataToSupabase}
                 >
-                  Create Recipe
+                  Save  Recipe
                 </button>
               </div>
             </div>

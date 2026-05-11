@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Select-Object FullName -First 50)",
+      "WebFetch(domain:nutrihelp-backend-deployment.onrender.com)",
+      "Bash(xargs grep -l \"from.*Menu\")"
+    ]
+  }
+}

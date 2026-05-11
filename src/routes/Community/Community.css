@@ -1,13 +1,14 @@
-/* Community Page Styles */
 .community-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background-color: var(--background-color);
   padding: 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .community-page.dark-mode {
-  background: #1a202c;
+  background-color: var(--background-color);
 }
 
 .community-container {
@@ -16,7 +17,6 @@
   padding: 20px;
 }
 
-/* Header Section */
 .community-header {
   display: flex;
   justify-content: space-between;
@@ -42,18 +42,21 @@
   font-size: 3rem;
   font-weight: 700;
   margin-bottom: 10px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--primary-color);
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+  background-clip: initial;
 }
 
 .dark-mode .community-title {
-  background: linear-gradient(135deg, #90cdf4, #63b3ed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--primary-color);
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+  background-clip: initial;
 }
+
 
 .community-subtitle {
   font-size: 1.2rem;
@@ -70,7 +73,7 @@
   align-items: center;
   gap: 10px;
   padding: 15px 25px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--primary-color);
   color: white;
   border: none;
   border-radius: 50px;
@@ -87,7 +90,6 @@
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
-/* Stats Section */
 .community-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -143,43 +145,50 @@
   color: #a0aec0;
 }
 
-/* Search and Filter Section */
 .search-filter-section {
   display: flex;
-  gap: 20px;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;     
+  flex-wrap: nowrap;       
   position: relative;
-  align-items: stretch;
-  min-height: 50px;
+  margin-bottom: 30px;
+  min-height: 52px;
 }
 
 .search-container {
-  flex: 1;
-  min-width: 300px;
+  flex: 1 1 auto;
+  min-width: 420px;
   position: relative;
 }
 
 .search-icon {
   position: absolute;
-  left: 15px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   color: #999;
-  z-index: 1;
+  z-index: 2;
+}
+
+.search-input,
+.filter-select,
+.sort-select {
+  height: 52px;
+  border-radius: 26px;
+  box-sizing: border-box;
+  border: 2px solid #e1e5e9;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: #ffffff;
 }
 
 .search-input {
-  width: 100%;
-  height: 50px;
-  padding: 15px 15px 15px 50px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 1rem;
-  background: white;
-  transition: all 0.3s ease;
+width: 100%;
+  height: 52px;          
+  border-radius: 26px;   
+  padding: 0 18px 0 52px;
+  line-height: 52px;
   box-sizing: border-box;
-  line-height: 1.5;
 }
 
 .dark-mode .search-input {
@@ -194,11 +203,43 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.filter-container,
+.sort-container {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 33px;              
+}
 
-/* Search Suggestions */
+.filter-select,
+.sort-select {
+  height: 52px;          
+  padding: 0 18px;       
+  line-height: 52px;     
+  cursor: pointer;
+  min-width: 150px;
+  border-radius: 26px;
+  box-sizing: border-box;
+  appearance: none;
+}
+
+.dark-mode .filter-select,
+.dark-mode .sort-select {
+  background: #2d3748;
+  border-color: #4a5568;
+  color: white;
+}
+
+.filter-select:focus,
+.sort-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.08);
+}
+
 .search-suggestions {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   background: white;
@@ -208,7 +249,6 @@
   z-index: 100;
   max-height: 300px;
   overflow-y: auto;
-  margin-top: 5px;
 }
 
 .dark-mode .search-suggestions {
@@ -269,76 +309,6 @@
   background: #4a5568;
 }
 
-/* Sort Container */
-.sort-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 150px;
-  flex-shrink: 0;
-}
-
-.sort-select {
-  padding: 15px 20px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 1rem;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 150px;
-  height: 50px;
-  box-sizing: border-box;
-  width: 100%;
-  line-height: 1.5;
-}
-
-.dark-mode .sort-select {
-  background: #2d3748;
-  border-color: #4a5568;
-  color: white;
-}
-
-.sort-select:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.filter-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 200px;
-  flex-shrink: 0;
-}
-
-
-.filter-select {
-  padding: 15px 20px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 1rem;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  height: 50px;
-  box-sizing: border-box;
-  width: 100%;
-  line-height: 1.5;
-}
-
-.dark-mode .filter-select {
-  background: #2d3748;
-  border-color: #4a5568;
-  color: white;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-/* Category Tabs */
 .category-tabs {
   display: flex;
   gap: 15px;
@@ -384,7 +354,6 @@
   font-size: 1.2rem;
 }
 
-/* Posts Section */
 .posts-section {
   margin-bottom: 40px;
 }
@@ -431,7 +400,7 @@
   gap: 25px;
 }
 
-/* Post Card */
+
 .post-card {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
@@ -521,13 +490,14 @@
   gap: 10px;
 }
 
-.post-actions {
+
+.post-owner-actions {
   display: flex;
-  gap: 5px;
+  gap: 6px;
+  margin-left: 8px;
 }
 
-/* Post header action buttons (edit/delete) */
-.post-header .action-btn {
+.post-owner-actions .action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -542,24 +512,24 @@
   font-size: 14px;
 }
 
-.dark-mode .post-header .action-btn {
+.dark-mode .post-owner-actions .action-btn {
   color: #a0aec0;
   border-color: #4a5568;
 }
 
-.post-header .action-btn:hover {
+.post-owner-actions .action-btn:hover {
   background: rgba(102, 126, 234, 0.1);
   color: #667eea;
   border-color: #667eea;
 }
 
-.post-header .edit-btn:hover {
+.post-owner-actions .edit-btn:hover {
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
   border-color: #3b82f6;
 }
 
-.post-header .delete-btn:hover {
+.post-owner-actions .delete-btn:hover {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border-color: #ef4444;
@@ -574,29 +544,41 @@
 }
 
 .category-weight-loss {
-  background: #fed7d7;
-  color: #c53030;
+ background: rgba(0, 91, 187, 0.12) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid rgba(0, 91, 187, 0.25) !important;
 }
+
+
 
 .category-fitness {
-  background: #c6f6d5;
-  color: #2f855a;
+background: rgba(0, 91, 187, 0.12) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid rgba(0, 91, 187, 0.25) !important;
 }
+
 
 .category-dietary-restrictions {
-  background: #bee3f8;
-  color: #2b6cb0;
+  background: rgba(0, 91, 187, 0.12) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid rgba(0, 91, 187, 0.25) !important;
 }
+
 
 .category-meal-prep {
-  background: #fef5e7;
-  color: #d69e2e;
+  background: rgba(0, 91, 187, 0.12) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid rgba(0, 91, 187, 0.25) !important;
 }
 
+
+
 .category-nutrition-tips {
-  background: #e9d8fd;
-  color: #553c9a;
+  background: rgba(0, 91, 187, 0.12) !important;
+  color: var(--primary-color) !important;
+  border: 1px solid rgba(0, 91, 187, 0.25) !important;
 }
+
 
 .post-content {
   margin-bottom: 20px;
@@ -651,23 +633,20 @@
 }
 
 .post-actions {
-  display: flex !important;
+  display: flex;
   gap: 20px;
   align-items: center;
   padding-top: 20px;
   border-top: 1px solid #e2e8f0;
   margin-top: 20px;
-  visibility: visible !important;
-  opacity: 1 !important;
 }
 
 .dark-mode .post-actions {
   border-top-color: #4a5568;
 }
 
-/* Post actions buttons (like, comment, share, bookmark) */
 .post-actions .action-btn {
-  display: flex !important;
+  display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
@@ -680,9 +659,17 @@
   transition: all 0.3s ease;
   min-width: 80px;
   justify-content: center;
-  visibility: visible !important;
-  opacity: 1 !important;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+
+.post-actions .action-btn.liked {
+  color: #ef4444; 
+}
+
+.post-actions .action-btn.liked svg {
+  fill: #ef4444;  
+  stroke: #ef4444;
 }
 
 .dark-mode .post-actions .action-btn {
@@ -723,6 +710,8 @@
   border-color: #667eea;
 }
 
+
+
 .post-actions .action-btn svg {
   transition: transform 0.2s ease;
 }
@@ -731,7 +720,27 @@
   transform: scale(1.1);
 }
 
-/* Responsive Design */
+@media (max-width: 900px) {
+  .search-filter-section {
+    flex-wrap: wrap;
+  }
+
+  .search-container {
+    min-width: 100%;
+  }
+
+  .filter-container,
+  .sort-container {
+    flex: 1 1 220px;
+  }
+
+  .filter-select,
+  .sort-select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .community-header {
     flex-direction: column;
@@ -739,56 +748,42 @@
     align-items: center;
     gap: 20px;
   }
-  
+
   .create-post-btn {
     align-self: center;
   }
-  
+
   .community-title {
     font-size: 2.5rem;
   }
-  
-  .search-filter-section {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .search-container {
-    min-width: 100%;
-  }
-  
-  .filter-container,
-  .sort-container {
-    min-width: auto;
-  }
-  
+
   .category-tabs {
     justify-content: flex-start;
     overflow-x: auto;
     padding-bottom: 10px;
   }
-  
+
   .posts-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .post-card {
     padding: 20px;
   }
-  
+
   .post-header {
     flex-direction: column;
     gap: 15px;
     align-items: flex-start;
   }
-  
+
   .post-actions {
     flex-wrap: wrap;
     gap: 15px;
     justify-content: center;
   }
-  
-  .action-btn {
+
+  .post-actions .action-btn {
     padding: 8px 12px;
     font-size: 0.85rem;
   }
@@ -798,21 +793,20 @@
   .community-container {
     padding: 10px;
   }
-  
+
   .community-header {
     padding: 20px;
   }
-  
+
   .community-title {
     font-size: 2rem;
   }
-  
+
   .stat-item {
     padding: 20px;
   }
-  
+
   .stat-number {
     font-size: 1.5rem;
   }
 }
-

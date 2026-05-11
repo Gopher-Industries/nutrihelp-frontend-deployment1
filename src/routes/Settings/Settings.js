@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useDarkMode } from '../../routes/DarkModeToggle/DarkModeContext';
 import { getFontSizeOptions, applyFontSize, getCurrentFontSize } from '../../utils/fontSizeManager';
-import { testVoiceSettings, saveVoiceSettings } from '../../utils/voiceSettingsManager';
-import { MoonIcon, SunIcon, Bell, Globe, Save, Volume2 } from "lucide-react";
+import {
+  DEFAULT_VOICE_SETTINGS,
+  getVoiceSettings,
+  hasSpeechSynthesisSupport,
+  saveVoiceSettings,
+  testVoiceSettings
+} from '../../utils/voiceSettingsManager';
+import { MoonIcon, SunIcon, Bell, Globe, Volume2 } from "lucide-react";
 import notificationPreferencesApi from '../../services/notificationPreferencesApi';
 import './Settings.css';
+import Switch from "react-switch";
+import Slider from '@mui/material/Slider';
 
 const Settings = () => {
-  const navigate = useNavigate();
+  const location = useLocation();
   const { darkMode, setDarkMode } = useDarkMode();
+
   const [fontSize, setFontSize] = useState('medium');
   const [fontSizes, setFontSizes] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -38,14 +47,9 @@ const Settings = () => {
   const [apiSuccess, setApiSuccess] = useState(null);
   
   // Voice/Audio settings states
-  const [voiceSettings, setVoiceSettings] = useState({
-    enabled: true,
-    volume: 0.8,
-    rate: 1.0,
-    pitch: 1.0,
-    autoPlay: false,
-    voice: 'default'
-  });
+  const [voiceSettings, setVoiceSettings] = useState({ ...DEFAULT_VOICE_SETTINGS });
+  const [isSpeechSupported, setIsSpeechSupported] = useState(() => hasSpeechSynthesisSupport());
+  const [availableVoices, setAvailableVoices] = useState([]);
 
   // Language options
   const languageOptions = [
@@ -128,16 +132,17 @@ const Settings = () => {
         const savedRememberPreferences = localStorage.getItem('rememberPreferences') !== 'false';
         const savedShowHelpfulTips = localStorage.getItem('showHelpfulTips') !== 'false';
         const savedAutoSave = localStorage.getItem('autoSave') !== 'false';
-        const savedVoiceSettings = JSON.parse(localStorage.getItem('voiceSettings') || '{}');
-        
+        const savedVoiceSettings = getVoiceSettings();
+
         setHighContrast(savedHighContrast);
         setShowFocusIndicators(savedShowFocusIndicators);
         setScreenReaderSupport(savedScreenReaderSupport);
         setRememberPreferences(savedRememberPreferences);
         setShowHelpfulTips(savedShowHelpfulTips);
         setAutoSave(savedAutoSave);
-        setVoiceSettings({ ...voiceSettings, ...savedVoiceSettings });
-        
+        setVoiceSettings(savedVoiceSettings);
+        setIsSpeechSupported(hasSpeechSynthesisSupport());
+
         setIsLoading(false);
       } catch (error) {
         console.error('Error initializing settings:', error);
@@ -151,17 +156,71 @@ const Settings = () => {
     initializeSettings();
   }, []);
 
+  useEffect(() => {
+    const supported = hasSpeechSynthesisSupport();
+    setIsSpeechSupported(supported);
+
+    if (!supported) {
+      setAvailableVoices([]);
+      return undefined;
+    }
+
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices() || [];
+      setAvailableVoices(voices);
+    };
+
+    loadVoices();
+
+    const speechSynthesisRef = window.speechSynthesis;
+
+    // Some browsers only expose voices asynchronously.
+    if (typeof speechSynthesisRef.addEventListener === "function") {
+      speechSynthesisRef.addEventListener("voiceschanged", loadVoices);
+    } else {
+      speechSynthesisRef.onvoiceschanged = loadVoices;
+    }
+
+    return () => {
+      if (typeof speechSynthesisRef.removeEventListener === "function") {
+        speechSynthesisRef.removeEventListener("voiceschanged", loadVoices);
+      } else if (speechSynthesisRef.onvoiceschanged === loadVoices) {
+        speechSynthesisRef.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
+  // Anchor scrolling for /settings#section
+  useEffect(() => {
+    if (isLoading) return;
+
+    const hash = location.hash?.replace('#', '');
+    if (!hash) return;
+
+    // allow layout to settle
+    const t = setTimeout(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(hash);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }, 50);
+
+    return () => clearTimeout(t);
+  }, [location.hash, isLoading]);
+
   // Load settings from local storage (fallback function)
   const loadSettingsFromLocalStorage = () => {
     try {
       const savedGlobalDarkMode = localStorage.getItem('globalDarkMode') === 'true';
       const savedLanguage = localStorage.getItem('language') || 'en';
       const savedNotifications = JSON.parse(localStorage.getItem('notifications') || '{}');
-      
+
       setDarkMode(savedGlobalDarkMode);
       setLanguage(savedLanguage);
-      setNotifications({ ...notifications, ...savedNotifications });
-      
+      setNotifications(prev => ({ ...prev, ...savedNotifications }));
+
       if (savedGlobalDarkMode) {
         document.body.classList.add('dark-mode');
       } else {
@@ -204,19 +263,26 @@ const Settings = () => {
     }
   };
 
-  // Handle dark mode toggle
-  const handleDarkModeToggle = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    
-    if (newDarkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
+  // Handle light mode button click
+  const handleLightModeClick = () => {
+    if (darkMode) {
+      setDarkMode(false);
       document.body.classList.remove('dark-mode');
+      document.body.classList.add('light-mode');
+      localStorage.setItem('globalDarkMode', 'false');
+      setHasUnsavedChanges(true);
     }
-    
-    localStorage.setItem('globalDarkMode', newDarkMode.toString());
-    setHasUnsavedChanges(true);
+  };
+
+  // Handle dark mode button click
+  const handleDarkModeClick = () => {
+    if (!darkMode) {
+      setDarkMode(true);
+      document.body.classList.add('dark-mode');
+      document.body.classList.remove('light-mode');
+      localStorage.setItem('globalDarkMode', 'true');
+      setHasUnsavedChanges(true);
+    }
   };
 
   // Handle notification toggle
@@ -274,16 +340,19 @@ const Settings = () => {
 
   // Handle voice settings change
   const handleVoiceSettingChange = (setting, value) => {
-    setVoiceSettings(prev => ({
-      ...prev,
-      [setting]: value
-    }));
+    setVoiceSettings(prev => {
+      const updated = {
+        ...prev,
+        [setting]: value
+      };
+      return saveVoiceSettings(updated);
+    });
     setHasUnsavedChanges(true);
   };
 
   // Test voice settings
   const handleTestVoice = () => {
-    testVoiceSettings(voiceSettings);
+    testVoiceSettings(voiceSettings, availableVoices);
   };
 
   // Save all settings
@@ -379,24 +448,6 @@ const Settings = () => {
     }, 3000);
   };
 
-  // Handle back navigation
-  const handleBack = () => {
-    if (hasUnsavedChanges) {
-      if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
-        navigate(-1);
-      }
-    } else {
-      navigate(-1);
-    }
-  };
-
-  // Handle save settings
-  const handleSaveSettings = () => {
-    saveSettings();
-    setHasUnsavedChanges(false);
-    navigate(-1);
-  };
-
   if (isLoading) {
     return (
       <div className={`settings-page ${darkMode ? 'dark-mode' : ''}`}>
@@ -427,44 +478,43 @@ const Settings = () => {
   }
 
   const currentFontSize = fontSizes[fontSize] || fontSizes.medium || { size: '16px', label: 'Medium' };
+  const selectedVoiceExists = availableVoices.some(
+    (voice) => voice.voiceURI === voiceSettings.voice
+  );
+  const selectedVoiceValue = selectedVoiceExists ? voiceSettings.voice : 'default';
+  const areVoiceControlsDisabled = !isSpeechSupported || !voiceSettings.enabled;
 
   // Define all settings sections
   const allSections = [
     {
       id: 'display',
       title: 'Display Settings',
-      description: 'Customize your display preferences',
+      description: 'Theme mode and display preferences',
       content: (
-        <div className="dark-mode-toggle">
-          <div className="toggle-label">
-            <span>Dark Mode</span>
-            <span>Switch between light and dark themes for better visibility</span>
-          </div>
-          <div 
-            className={`toggle-switch ${darkMode ? 'active' : ''}`}
-            onClick={handleDarkModeToggle}
-            role="button"
-            tabIndex={0}
-            aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleDarkModeToggle();
-              }
-            }}
-          >
-            <div className="toggle-slider"></div>
-            <div className="toggle-icon">
-              {darkMode ? <SunIcon size={20} /> : <MoonIcon size={20} />}
-            </div>
-          </div>
+        <div className="theme-mode-selector">
+            <button 
+              className={`mode-button ${!darkMode ? 'active' : ''}`}
+              onClick={handleLightModeClick}
+              aria-label="Switch to light mode"
+            >
+              <SunIcon size={24} />
+              <span>Light Mode</span>
+            </button>
+            <button 
+              className={`mode-button ${darkMode ? 'active' : ''}`}
+              onClick={handleDarkModeClick}
+              aria-label="Switch to dark mode"
+            >
+              <MoonIcon size={24} />
+              <span>Dark Mode</span>
+            </button>
         </div>
       )
     },
     {
       id: 'font',
       title: 'Font Size',
-      description: 'Adjust the text size to make it easier to read for elderly users',
+      description: 'Adjust text size for readability',
       content: (
         <>
           <div className="font-size-options">
@@ -492,55 +542,64 @@ const Settings = () => {
     {
       id: 'accessibility',
       title: 'Accessibility',
-      description: 'Additional settings for better accessibility',
+      description: 'Support features for diverse accessibility needs',
       content: (
         <div className="accessibility-options">
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={highContrast}
-              onChange={(e) => {
-                setHighContrast(e.target.checked);
-                setHasUnsavedChanges(true);
-              }}
-            />
             <div>
               <div className="checkbox-label">High contrast mode</div>
-              <div className="checkbox-description">Enhance text and background contrast</div>
             </div>
+            <Switch 
+              checked={highContrast}
+              onChange={(checked) => {
+                setHighContrast(checked);
+                setHasUnsavedChanges(true);
+              }}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
           
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={showFocusIndicators}
-              onChange={(e) => {
-                setShowFocusIndicators(e.target.checked);
-                setHasUnsavedChanges(true);
-              }}
-            />
             <div>
               <div className="checkbox-label">Show focus indicators</div>
-              <div className="checkbox-description">Highlight focused elements for better navigation</div>
             </div>
+            <Switch 
+              checked={showFocusIndicators}
+              onChange={(checked) => {
+                setShowFocusIndicators(checked);
+                setHasUnsavedChanges(true);
+              }}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
           
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={screenReaderSupport}
-              onChange={(e) => {
-                setScreenReaderSupport(e.target.checked);
-                setHasUnsavedChanges(true);
-              }}
-            />
             <div>
               <div className="checkbox-label">Enable screen reader support</div>
-              <div className="checkbox-description">Improve compatibility with assistive technologies</div>
             </div>
+            <Switch 
+              checked={screenReaderSupport}
+              onChange={(checked) => {
+                setScreenReaderSupport(checked);
+                setHasUnsavedChanges(true);
+              }}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
         </div>
       )
@@ -548,145 +607,141 @@ const Settings = () => {
     {
       id: 'notifications',
       title: 'Notifications',
-      description: 'Manage your notification preferences',
+      description: 'Choose which reminders and alerts you receive',
       content: (
         <div className="notification-options">
           <div className="notification-header">
             <div className="notification-status">
+              <span className="toggle-label">Enable All Notifications</span>
               <span className="status-indicator">
                 {Object.values(notifications).filter(Boolean).length} of {Object.keys(notifications).length} enabled
               </span>
             </div>
             <div className="notification-actions">
-              <button 
-                className="action-btn enable-all"
-                onClick={() => {
-                  const allEnabled = Object.keys(notifications).reduce((acc, key) => {
-                    acc[key] = true;
+              <Switch 
+                checked={Object.values(notifications).every(Boolean)}
+                onChange={(checked) => {
+                  const allToggled = Object.keys(notifications).reduce((acc, key) => {
+                    acc[key] = checked;
                     return acc;
                   }, {});
-                  setNotifications(allEnabled);
+                  setNotifications(allToggled);
                   setHasUnsavedChanges(true);
-                  showSuccessMessage('All notifications enabled');
+                  showSuccessMessage(checked ? 'All notifications enabled' : 'All notifications disabled');
                 }}
-              >
-                Enable All
-              </button>
-              <button 
-                className="action-btn disable-all"
-                onClick={() => {
-                  const allDisabled = Object.keys(notifications).reduce((acc, key) => {
-                    acc[key] = false;
-                    return acc;
-                  }, {});
-                  setNotifications(allDisabled);
-                  setHasUnsavedChanges(true);
-                  showSuccessMessage('All notifications disabled');
-                }}
-              >
-                Disable All
-              </button>
+                onColor="#005BBB"
+                offColor="#ccc"
+                checkedIcon={false}
+                uncheckedIcon={false}
+                height={24}
+                width={48}
+              />
             </div>
           </div>
           
           <div className="notification-list">
-            <div className="checkbox-group" onClick={() => handleNotificationToggle('mealReminders')}>
-              <input 
-                type="checkbox" 
-                className="checkbox-input"
-                checked={notifications.mealReminders}
-                onChange={() => {}} // Handled by parent div click
-                readOnly
-              />
+            <div className="checkbox-group">
               <div className="notification-content">
                 <div className="checkbox-label">
                   <span className="notification-icon">🍽️</span>
                   Meal reminders
+                  <div className="checkbox-description">Get reminded about your scheduled meals</div>
                 </div>
-                <div className="checkbox-description">Get reminded about your scheduled meals</div>
-                <div className="notification-status-text">
-                  {notifications.mealReminders ? 'Enabled' : 'Disabled'}
-                </div>
+                <Switch 
+                  checked={notifications.mealReminders}
+                  onChange={(checked) => handleNotificationToggle('mealReminders')}
+                  onColor="#005BBB"
+                  offColor="#ccc"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={24}
+                  width={48}
+                />
               </div>
+
             </div>
             
-            <div className="checkbox-group" onClick={() => handleNotificationToggle('waterReminders')}>
-              <input 
-                type="checkbox" 
-                className="checkbox-input"
-                checked={notifications.waterReminders}
-                onChange={() => {}} // Handled by parent div click
-                readOnly
-              />
+            <div className="checkbox-group">
               <div className="notification-content">
                 <div className="checkbox-label">
                   <span className="notification-icon">💧</span>
                   Water intake reminders
+                  <div className="checkbox-description">Stay hydrated with regular water reminders</div>
                 </div>
-                <div className="checkbox-description">Stay hydrated with regular water reminders</div>
-                <div className="notification-status-text">
-                  {notifications.waterReminders ? 'Enabled' : 'Disabled'}
-                </div>
+                
+                <Switch 
+                  checked={notifications.waterReminders}
+                  onChange={(checked) => handleNotificationToggle('waterReminders')}
+                  onColor="#005BBB"
+                  offColor="#ccc"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={24}
+                  width={48}
+                />
               </div>
+
             </div>
             
-            <div className="checkbox-group" onClick={() => handleNotificationToggle('healthTips')}>
-              <input 
-                type="checkbox" 
-                className="checkbox-input"
-                checked={notifications.healthTips}
-                onChange={() => {}} // Handled by parent div click
-                readOnly
-              />
+            <div className="checkbox-group">
               <div className="notification-content">
                 <div className="checkbox-label">
                   <span className="notification-icon">💡</span>
                   Health tips
+                  <div className="checkbox-description">Receive daily health and nutrition tips</div>
                 </div>
-                <div className="checkbox-description">Receive daily health and nutrition tips</div>
-                <div className="notification-status-text">
-                  {notifications.healthTips ? 'Enabled' : 'Disabled'}
-                </div>
+                <Switch 
+                  checked={notifications.healthTips}
+                  onChange={(checked) => handleNotificationToggle('healthTips')}
+                  onColor="#005BBB"
+                  offColor="#ccc"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={24}
+                  width={48}
+                />
               </div>
+              
             </div>
             
-            <div className="checkbox-group" onClick={() => handleNotificationToggle('weeklyReports')}>
-              <input 
-                type="checkbox" 
-                className="checkbox-input"
-                checked={notifications.weeklyReports}
-                onChange={() => {}} // Handled by parent div click
-                readOnly
-              />
+            <div className="checkbox-group">
               <div className="notification-content">
                 <div className="checkbox-label">
                   <span className="notification-icon">📊</span>
                   Weekly progress reports
+                  <div className="checkbox-description">Get weekly summaries of your health progress</div>
                 </div>
-                <div className="checkbox-description">Get weekly summaries of your health progress</div>
-                <div className="notification-status-text">
-                  {notifications.weeklyReports ? 'Enabled' : 'Disabled'}
-                </div>
+                <Switch 
+                  checked={notifications.weeklyReports}
+                  onChange={(checked) => handleNotificationToggle('weeklyReports')}
+                  onColor="#005BBB"
+                  offColor="#ccc"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={24}
+                  width={48}
+                />
               </div>
+
             </div>
             
-            <div className="checkbox-group" onClick={() => handleNotificationToggle('systemUpdates')}>
-              <input 
-                type="checkbox" 
-                className="checkbox-input"
-                checked={notifications.systemUpdates}
-                onChange={() => {}} // Handled by parent div click
-                readOnly
-              />
+            <div className="checkbox-group">
               <div className="notification-content">
                 <div className="checkbox-label">
                   <span className="notification-icon">🔔</span>
                   System updates
+                  <div className="checkbox-description">Receive notifications about app updates</div>
                 </div>
-                <div className="checkbox-description">Receive notifications about app updates</div>
-                <div className="notification-status-text">
-                  {notifications.systemUpdates ? 'Enabled' : 'Disabled'}
-                </div>
+                <Switch 
+                  checked={notifications.systemUpdates}
+                  onChange={(checked) => handleNotificationToggle('systemUpdates')}
+                  onColor="#005BBB"
+                  offColor="#ccc"
+                  checkedIcon={false}
+                  uncheckedIcon={false}
+                  height={24}
+                  width={48}
+                />
               </div>
             </div>
           </div>
@@ -696,19 +751,20 @@ const Settings = () => {
     {
       id: 'language',
       title: 'Language',
-      description: 'Choose your preferred language',
+      description: 'Change your preferred language',
       content: (
-        <div className="language-options">
-          {languageOptions.map((lang) => (
-            <button
-              key={lang.code}
-              className={`language-option ${language === lang.code ? 'selected' : ''}`}
-              onClick={() => handleLanguageChange(lang.code)}
-            >
-              <span className="language-flag">{lang.flag}</span>
-              <span className="language-name">{lang.name}</span>
-            </button>
-          ))}
+        <div className="language-dropdown-container">
+          <select 
+            className="language-dropdown"
+            value={language}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+          >
+            {languageOptions.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.name} ({lang.flag})
+              </option>
+            ))}
+          </select>
         </div>
       )
     },
@@ -718,100 +774,158 @@ const Settings = () => {
       description: 'Configure text-to-speech and audio settings',
       content: (
         <div className="voice-options">
+          {!isSpeechSupported && (
+            <div className="checkbox-description" style={{ color: '#b45309', marginBottom: '12px' }}>
+              Text-to-speech is not available in this browser. Voice controls are disabled.
+            </div>
+          )}
+
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={voiceSettings.enabled}
-              onChange={(e) => handleVoiceSettingChange('enabled', e.target.checked)}
-            />
             <div>
               <div className="checkbox-label">Enable text-to-speech</div>
-              <div className="checkbox-description">Turn on/off the voice reading feature</div>
             </div>
+            <Switch 
+              checked={voiceSettings.enabled}
+              onChange={(checked) => handleVoiceSettingChange('enabled', checked)}
+              disabled={!isSpeechSupported}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
+          </div>
+
+          <div className="slider-group">
+            <div className="slider-label">
+              <span>Voice</span>
+            </div>
+            <select
+              className="language-dropdown"
+              value={selectedVoiceValue}
+              onChange={(e) => handleVoiceSettingChange('voice', e.target.value)}
+              disabled={areVoiceControlsDisabled}
+            >
+              <option value="default">Default System Voice</option>
+              {availableVoices.map((voice) => (
+                <option key={voice.voiceURI} value={voice.voiceURI}>
+                  {voice.name} ({voice.lang}){voice.default ? ' - default' : ''}
+                </option>
+              ))}
+            </select>
           </div>
           
           <div className="slider-group">
             <div className="slider-label">
-              <span>Voice Volume: {Math.round(voiceSettings.volume * 100)}%</span>
+              <span>Voice Volume</span>
+              <span>{Math.round(voiceSettings.volume * 100)}%</span>
             </div>
-            <div className="voice-slider-container">
-              <div 
-                className="voice-slider-progress" 
-                style={{ width: `${voiceSettings.volume * 100}%` }}
-              ></div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={voiceSettings.volume}
-                onChange={(e) => handleVoiceSettingChange('volume', parseFloat(e.target.value))}
-                className="voice-slider"
-              />
-            </div>
+            <Slider
+              value={voiceSettings.volume}
+              onChange={(e, newValue) => handleVoiceSettingChange('volume', newValue)}
+              disabled={areVoiceControlsDisabled}
+              min={0}
+              max={1}
+              step={0.1}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => `${Math.round(value * 100)}%`}
+              sx={{
+                color: '#005BBB',
+                '& .MuiSlider-thumb': {
+                  backgroundColor: '#005BBB',
+                },
+                '& .MuiSlider-track': {
+                  backgroundColor: '#005BBB',
+                },
+                '& .MuiSlider-rail': {
+                  backgroundColor: '#d1d5db',
+                },
+              }}
+            />
           </div>
           
           <div className="slider-group">
             <div className="slider-label">
-              <span>Speech Rate: {voiceSettings.rate}x</span>
+              <span>Speech Rate</span>
+              <span>{voiceSettings.rate}x</span>
             </div>
-            <div className="voice-slider-container">
-              <div 
-                className="voice-slider-progress" 
-                style={{ width: `${((voiceSettings.rate - 0.5) / 1.5) * 100}%` }}
-              ></div>
-              <input
-                type="range"
-                min="0.5"
-                max="2"
-                step="0.1"
-                value={voiceSettings.rate}
-                onChange={(e) => handleVoiceSettingChange('rate', parseFloat(e.target.value))}
-                className="voice-slider"
-              />
-            </div>
+            <Slider
+              value={voiceSettings.rate}
+              onChange={(e, newValue) => handleVoiceSettingChange('rate', newValue)}
+              disabled={areVoiceControlsDisabled}
+              min={0.5}
+              max={2}
+              step={0.1}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => `${value}x`}
+              sx={{
+                color: '#005BBB',
+                '& .MuiSlider-thumb': {
+                  backgroundColor: '#005BBB'
+                },
+                '& .MuiSlider-track': {
+                  backgroundColor: '#005BBB',
+                },
+                '& .MuiSlider-rail': {
+                  backgroundColor: '#d1d5db',
+                },
+              }}
+            />
           </div>
           
           <div className="slider-group">
             <div className="slider-label">
-              <span>Voice Pitch: {voiceSettings.pitch}x</span>
+              <span>Voice Pitch</span>
+              <span>{voiceSettings.pitch}x</span>
             </div>
-            <div className="voice-slider-container">
-              <div 
-                className="voice-slider-progress" 
-                style={{ width: `${((voiceSettings.pitch - 0.5) / 1.5) * 100}%` }}
-              ></div>
-              <input
-                type="range"
-                min="0.5"
-                max="2"
-                step="0.1"
-                value={voiceSettings.pitch}
-                onChange={(e) => handleVoiceSettingChange('pitch', parseFloat(e.target.value))}
-                className="voice-slider"
-              />
-            </div>
+            <Slider
+              value={voiceSettings.pitch}
+              onChange={(e, newValue) => handleVoiceSettingChange('pitch', newValue)}
+              disabled={areVoiceControlsDisabled}
+              min={0.5}
+              max={2}
+              step={0.1}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => `${value}x`}
+              sx={{
+                color: '#005BBB',
+                '& .MuiSlider-thumb': {
+                  backgroundColor: '#005BBB'
+                },
+                '& .MuiSlider-track': {
+                  backgroundColor: '#005BBB',
+                },
+                '& .MuiSlider-rail': {
+                  backgroundColor: '#d1d5db',
+                },
+              }}
+            />
           </div>
           
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={voiceSettings.autoPlay}
-              onChange={(e) => handleVoiceSettingChange('autoPlay', e.target.checked)}
-            />
             <div>
               <div className="checkbox-label">Auto-play on page load</div>
               <div className="checkbox-description">Automatically start reading when a new page loads</div>
             </div>
+            <Switch 
+              checked={voiceSettings.autoPlay}
+              onChange={(checked) => handleVoiceSettingChange('autoPlay', checked)}
+              disabled={areVoiceControlsDisabled}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
           
           <div className="voice-test-section">
             <button 
               className="test-voice-btn"
               onClick={handleTestVoice}
-              disabled={!voiceSettings.enabled}
+              disabled={areVoiceControlsDisabled}
             >
               <Volume2 size={16} />
               Test Voice Settings
@@ -826,55 +940,67 @@ const Settings = () => {
     {
       id: 'preferences',
       title: 'User Preferences',
-      description: 'Customize your experience',
+      description: 'Personal preferences and autosave options',
       content: (
-        <div className="preference-options">
+        <div className="user-preference-options">
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={rememberPreferences}
-              onChange={(e) => {
-                setRememberPreferences(e.target.checked);
-                setHasUnsavedChanges(true);
-              }}
-            />
             <div>
               <div className="checkbox-label">Remember my preferences</div>
               <div className="checkbox-description">Save your settings across sessions</div>
             </div>
+            <Switch 
+              checked={rememberPreferences}
+              onChange={(checked) => {
+                setRememberPreferences(checked);
+                setHasUnsavedChanges(true);
+              }}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
           
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={showHelpfulTips}
-              onChange={(e) => {
-                setShowHelpfulTips(e.target.checked);
-                setHasUnsavedChanges(true);
-              }}
-            />
             <div>
               <div className="checkbox-label">Show helpful tips</div>
               <div className="checkbox-description">Display contextual help and tips</div>
             </div>
+            <Switch 
+              checked={showHelpfulTips}
+              onChange={(checked) => {
+                setShowHelpfulTips(checked);
+                setHasUnsavedChanges(true);
+              }}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
           
           <div className="checkbox-group">
-            <input 
-              type="checkbox" 
-              className="checkbox-input"
-              checked={autoSave}
-              onChange={(e) => {
-                setAutoSave(e.target.checked);
-                setHasUnsavedChanges(true);
-              }}
-            />
             <div>
               <div className="checkbox-label">Auto-save settings</div>
               <div className="checkbox-description">Automatically save changes after 2 seconds</div>
             </div>
+            <Switch 
+              checked={autoSave}
+              onChange={(checked) => {
+                setAutoSave(checked);
+                setHasUnsavedChanges(true);
+              }}
+              onColor="#005BBB"
+              offColor="#ccc"
+              checkedIcon={false}
+              uncheckedIcon={false}
+              height={24}
+              width={48}
+            />
           </div>
         </div>
       )
@@ -885,20 +1011,12 @@ const Settings = () => {
     <div className={`settings-page ${darkMode ? 'dark-mode' : ''}`}>
       <div className="settings-container">
         <div className="settings-header">
-          <button 
-            className="back-button"
-            onClick={handleBack}
-            aria-label="Go back"
-          >
-            ← Back
-          </button>
           <h1 className="settings-title">Settings</h1>
-          <p className="settings-subtitle">Customize your NutriHelp experience</p>
         </div>
 
         <div className="settings-content">
-          {/* API Status Messages */}
-          {apiError && (
+          {/* API Status Messages, Not totally necessay but use when testing. */}
+          {/* {apiError && (
             <div className="api-status-message api-error">
               <span>⚠️ {apiError}</span>
             </div>
@@ -912,13 +1030,17 @@ const Settings = () => {
             <div className="api-status-message api-loading">
               <span>🔄 {isLoadingFromAPI ? 'Loading settings from cloud...' : 'Saving settings to cloud...'}</span>
             </div>
-          )}
+          )} */}
 
           {/* Settings Sections */}
           {allSections.map((section) => (
-            <div key={section.id} className="settings-section">
+            <div
+              key={section.id}
+              id={section.id}
+              className="settings-section"
+            >
               <h2 className="section-title">
-                                 {section.title === 'Display Settings' && <SunIcon size={24} />}
+                 {section.title === 'Display Settings' && <SunIcon size={24} />}
                  {section.title === 'Font Size' && <span style={{ fontSize: '24px' }}>Aa</span>}
                  {section.title === 'Accessibility' && <span style={{ fontSize: '24px' }}>♿</span>}
                  {section.title === 'Notifications' && <Bell size={24} />}
@@ -935,7 +1057,8 @@ const Settings = () => {
           ))}
         </div>
 
-        <div className="settings-footer">
+          {/* There is auto-save feature so the footer might not be necessary but kept in place in case of future use cases */}
+        {/* <div className="settings-footer">
           <button 
             className="cancel-btn"
             onClick={handleBack}
@@ -949,7 +1072,7 @@ const Settings = () => {
           >
             {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import './HealthTools.css';
 
-
 function WaterTracker({ recommendedWater }) {
   const [cupsDrank, setCupsDrank] = useState(0);
   const cupSize = 250;
@@ -32,20 +31,27 @@ function HealthTools() {
   const [recommendedCalories, setRecommendedCalories] = useState(null);
   const [foodWeightPounds, setFoodWeightPounds] = useState('');
   const [foodWeightGrams, setFoodWeightGrams] = useState(null);
+  const [activeTool, setActiveTool] = useState('macro');
+  const [bmiWeight, setBmiWeight] = useState('');
+  const [bmiHeight, setBmiHeight] = useState('');
+  const [bmiResult, setBmiResult] = useState(null);
+  const [bodyFatGender, setBodyFatGender] = useState('male');
+  const [bodyFatHeight, setBodyFatHeight] = useState('');
+  const [bodyFatNeck, setBodyFatNeck] = useState('');
+  const [bodyFatWaist, setBodyFatWaist] = useState('');
+  const [bodyFatHip, setBodyFatHip] = useState('');
+  const [bodyFatResult, setBodyFatResult] = useState(null);
 
-  function calculateProteinIntake(bodyWeight) {
-    const proteinPerKg = 0.9;
-    return bodyWeight * proteinPerKg;
+  function calculateProteinIntake(weight) {
+    return weight * 0.9;
   }
 
-  function calculateWaterIntake(bodyWeight) {
-    const waterPerKg = 35;
-    return bodyWeight * waterPerKg;
+  function calculateWaterIntake(weight) {
+    return weight * 35;
   }
 
-  function calculateCalorieIntake(bodyWeight) {
-    const caloriesPerKg = 30;
-    return bodyWeight * caloriesPerKg;
+  function calculateCalorieIntake(weight) {
+    return weight * 30;
   }
 
   const handleCalculate = () => {
@@ -64,60 +70,229 @@ function HealthTools() {
     }
   };
 
+  const handleCalculateBmi = () => {
+    if (!bmiWeight || !bmiHeight || isNaN(bmiWeight) || isNaN(bmiHeight)) {
+      return;
+    }
+    const weightKg = parseFloat(bmiWeight);
+    const heightM = parseFloat(bmiHeight) / 100;
+    if (heightM <= 0) {
+      return;
+    }
+    const bmi = weightKg / (heightM * heightM);
+    setBmiResult(bmi.toFixed(1));
+  };
+
+  const handleCalculateBodyFat = () => {
+    if (!bodyFatHeight || !bodyFatNeck || !bodyFatWaist) {
+      return;
+    }
+    const heightIn = parseFloat(bodyFatHeight) / 2.54;
+    const neckIn = parseFloat(bodyFatNeck) / 2.54;
+    const waistIn = parseFloat(bodyFatWaist) / 2.54;
+    if (isNaN(heightIn) || isNaN(neckIn) || isNaN(waistIn)) {
+      return;
+    }
+    let bodyFat;
+    if (bodyFatGender === 'female') {
+      const hipIn = parseFloat(bodyFatHip) / 2.54;
+      if (!bodyFatHip || isNaN(hipIn)) {
+        return;
+      }
+      bodyFat =
+        163.205 * Math.log10(waistIn + hipIn - neckIn) -
+        97.684 * Math.log10(heightIn) -
+        78.387;
+    } else {
+      bodyFat =
+        86.010 * Math.log10(waistIn - neckIn) -
+        70.041 * Math.log10(heightIn) +
+        36.76;
+    }
+    setBodyFatResult(bodyFat.toFixed(1));
+  };
+
   return (
-    <div className="container">
-      <h1>Health Calculator Tools</h1>
-      <div className="card">
-        <input
-          type="number"
-          value={bodyWeight}
-          onChange={(e) => setBodyWeight(e.target.value)}
-          className="input-field"
-          placeholder="Enter body weight in Kilograms"
-        />
-        <button className="primary-button" onClick={handleCalculate}>
-          Calculate
+    <div className="health-tools">
+      <h1>Health Tool Calculator</h1>
+
+      <div className="tool-tabs" role="tablist" aria-label="Health tools">
+        <button
+          type="button"
+          className={`tool-tab ${activeTool === 'macro' ? 'active' : ''}`}
+          onClick={() => setActiveTool('macro')}
+          role="tab"
+          aria-selected={activeTool === 'macro'}
+        >
+          Macro Calculator
+        </button>
+        <button
+          type="button"
+          className={`tool-tab ${activeTool === 'converter' ? 'active' : ''}`}
+          onClick={() => setActiveTool('converter')}
+          role="tab"
+          aria-selected={activeTool === 'converter'}
+        >
+          Pounds to Kilogram
+        </button>
+        <button
+          type="button"
+          className={`tool-tab ${activeTool === 'bmi' ? 'active' : ''}`}
+          onClick={() => setActiveTool('bmi')}
+          role="tab"
+          aria-selected={activeTool === 'bmi'}
+        >
+          BMI Calculator
+        </button>
+        <button
+          type="button"
+          className={`tool-tab ${activeTool === 'bodyfat' ? 'active' : ''}`}
+          onClick={() => setActiveTool('bodyfat')}
+          role="tab"
+          aria-selected={activeTool === 'bodyfat'}
+        >
+          Body Fat %
         </button>
       </div>
-      {recommendedProtein && (
-        <div className="card">
-          <h3>Recommended Protein Intake</h3>
-          <p className="result-text">{recommendedProtein} grams</p>
-        </div>
-      )}
-      {recommendedWater && (
-        <div className="card">
-          <h3>Recommended Water Intake</h3>
-          <p className="result-text">{recommendedWater} ml</p>
-        </div>
-      )}
-      {recommendedCalories && (
-        <div className="card">
-          <h3>Recommended Caloric Intake</h3>
-          <p className="result-text">{recommendedCalories} calories</p>
-        </div>
-      )}
-      {recommendedWater && (
-        <WaterTracker recommendedWater={parseFloat(recommendedWater)} />
-      )}
-      <div className="card">
-        <h3>Convert Pounds to Kilograms</h3>
-        <input
-          type="number"
-          value={foodWeightPounds}
-          onChange={(e) => setFoodWeightPounds(e.target.value)}
-          className="input-field"
-          placeholder="Enter pounds"
-        />
-        <button className="primary-button" onClick={handleConvertFoodWeight}>
-          Convert
-        </button>
-        {foodWeightGrams && (
-          <p className="result-text">
-            {foodWeightPounds} lbs = {foodWeightGrams} kg
-          </p>
+
+      <div className="tool-panel">
+        {activeTool === 'macro' && (
+          <div className="card">
+            <h3>Macro Calculator</h3>
+            <input
+              type="number"
+              value={bodyWeight}
+              onChange={(e) => setBodyWeight(e.target.value)}
+              className="input-field"
+              placeholder="Enter body weight in Kilograms ..."
+            />
+            <button className="primary-button" onClick={handleCalculate}>
+              Calculate
+            </button>
+            {recommendedProtein && (
+              <p className="result-text">Protein: {recommendedProtein} g</p>
+            )}
+            {recommendedWater && (
+              <p className="result-text">Water: {recommendedWater} ml</p>
+            )}
+            {recommendedCalories && (
+              <p className="result-text">Calories: {recommendedCalories} cal</p>
+            )}
+            {recommendedWater && (
+              <WaterTracker recommendedWater={parseFloat(recommendedWater)} />
+            )}
+          </div>
+        )}
+
+        {activeTool === 'converter' && (
+          <div className="card">
+            <h3>Pounds to Kilogram Converter</h3>
+            <input
+              type="number"
+              value={foodWeightPounds}
+              onChange={(e) => setFoodWeightPounds(e.target.value)}
+              className="input-field"
+              placeholder="Enter pounds to be converted ..."
+            />
+            <button className="primary-button" onClick={handleConvertFoodWeight}>
+              Convert
+            </button>
+            {foodWeightGrams && (
+              <p className="result-text">
+                {foodWeightPounds} lbs = {foodWeightGrams} kg
+              </p>
+            )}
+          </div>
+        )}
+
+        {activeTool === 'bmi' && (
+          <div className="card">
+            <h3>BMI Calculator</h3>
+            <div className="input-grid">
+              <input
+                type="number"
+                value={bmiWeight}
+                onChange={(e) => setBmiWeight(e.target.value)}
+                className="input-field"
+                placeholder="Weight (kg) ..."
+              />
+              <input
+                type="number"
+                value={bmiHeight}
+                onChange={(e) => setBmiHeight(e.target.value)}
+                className="input-field"
+                placeholder="Height (cm) ..."
+              />
+            </div>
+            <button className="primary-button" onClick={handleCalculateBmi}>
+              Calculate BMI
+            </button>
+            {bmiResult && (
+              <p className="result-text">Your BMI: {bmiResult}</p>
+            )}
+          </div>
+        )}
+
+        {activeTool === 'bodyfat' && (
+          <div className="card">
+            <h3>Body Fat % Calculator</h3>
+            <select
+              className="input-field"
+              value={bodyFatGender}
+              onChange={(e) => setBodyFatGender(e.target.value)}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+            <div className="input-grid">
+              <input
+                type="number"
+                value={bodyFatHeight}
+                onChange={(e) => setBodyFatHeight(e.target.value)}
+                className="input-field"
+                placeholder="Height (cm) ..."
+              />
+              <input
+                type="number"
+                value={bodyFatNeck}
+                onChange={(e) => setBodyFatNeck(e.target.value)}
+                className="input-field"
+                placeholder="Neck (cm) ..."
+              />
+              <input
+                type="number"
+                value={bodyFatWaist}
+                onChange={(e) => setBodyFatWaist(e.target.value)}
+                className="input-field"
+                placeholder="Waist (cm) ..."
+              />
+              {bodyFatGender === 'female' && (
+                <input
+                  type="number"
+                  value={bodyFatHip}
+                  onChange={(e) => setBodyFatHip(e.target.value)}
+                  className="input-field"
+                  placeholder="Hip (cm)"
+                />
+              )}
+            </div>
+            <button className="primary-button" onClick={handleCalculateBodyFat}>
+              Calculate Body Fat %
+            </button>
+            {bodyFatResult && (
+              <p className="result-text">Estimated Body Fat: {bodyFatResult}%</p>
+            )}
+          </div>
         )}
       </div>
+      <section className="how-to-section" aria-label="How to use">
+        <h2 className="how-to-title">How to use:</h2>
+        <ul className="how-to-list">
+          <li>Select an appropriate calculator for the required measurements.</li>
+          <li>Enter your measurements in the fields provided.</li>
+          <li>Press the calculate button to see your result.</li>
+        </ul>
+      </section>
     </div>
   );
 }

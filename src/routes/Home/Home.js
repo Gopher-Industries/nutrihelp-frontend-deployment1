@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { UserContext } from "../../context/user.context";
 import "./Home.css";
 import { faker } from "@faker-js/faker";
@@ -6,65 +6,141 @@ import { useDarkMode } from "../DarkModeToggle/DarkModeContext";
 import { motion } from "framer-motion";
 import FramerClient from "../../components/framer-client";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { EffectCoverflow, Pagination, Navigation } from "swiper/modules";
+import { Pagination, Navigation, Autoplay } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/effect-coverflow";
 import "swiper/css/pagination";
 import "swiper/css/navigation";
 import {
+  Apple,
+  Brain,
+  Dumbbell,
   Facebook,
   HeartPulse,
   Instagram,
   Linkedin,
-  Mail,
-  MapPin,
-  Phone,
-  Stethoscope,
+  Leaf,
+  MilkOff,
+  Sparkles,
+  Snowflake,
   Twitter,
   Utensils,
+  Scale,
+  Droplets,
+  Users,
+  Bot,
+  Quote,
+  ChevronRight,
+  ArrowRight,
 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { validateEmail, ERROR_MESSAGES } from "../../utils/validationRules";
+import FieldError from "../../components/FieldError";
+import { toast } from "react-toastify";
 
 const Home = () => {
   const { currentUser } = useContext(UserContext);
-
-  const [showHeader, setShowHeader] = useState(true);
-  const [prevScrollPos, setPrevScrollPos] = useState(0);
   const { darkMode } = useDarkMode();
+  const navigate = useNavigate();
 
-  /*   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollPos = window.scrollY;
+  // Reviews
+  const reviews = useMemo(
+    () =>
+      Array.from({ length: 15 }, () => ({
+        avatar: faker.image.avatar(),
+        name: faker.person.fullName(),
+        review: faker.lorem.sentences(2),
+        rating: Math.ceil(Math.random() * 5),
+      })),
+    []
+  );
 
-      if (currentScrollPos > prevScrollPos) {
-        // Scrolling down
-        setShowHeader(false);
-      } else {
-        // Scrolling up
-        setShowHeader(true);
-      }
+  // Service cards, bigger images
+  const services = [
+    {
+      title: "Meal Planning",
+      description:
+        "Access a variety of nutritious meal plans and recipes designed to meet your everyday needs.",
+      image: "/images/4.jpg",
+      route: "/Meal",
+      cta: "Learn More →",
+    },
+    {
+      title: "Dietary Needs",
+      description:
+        "Customise plans based on dietary requirements, allergies, and preferences.",
+      image: "/images/5.jpg",
+      route: "/dietaryRequirements",
+      cta: "Browse Options →",
+    },
+    {
+      title: "Create Recipes",
+      description:
+        "Create personalised recipes tailored to your taste and nutrition goals.",
+      image: "/images/6.jpg",
+      route: "/createRecipe",
+      cta: "Start Cooking →",
+    },
+    {
+      title: "Product Scanning",
+      description:
+        "Scan a product to analyse nutrition and receive an easy-to-understand breakdown.",
+      image: "/images/7.jpg",
+      route: "/scan",
+      cta: "Try Scanner →",
+    },
+  ];
 
-      setPrevScrollPos(currentScrollPos);
-    };
+  const superSnackBenefits = [
+    { Icon: Apple, label: "organic fruits & veggies" },
+    { Icon: Dumbbell, label: "plant protein" },
+    { Icon: HeartPulse, label: "prebiotic fiber" },
+    { Icon: Brain, label: "flax & omega-3s" },
+    { Icon: Sparkles, label: "vitamins & minerals" },
+    { Icon: Scale, label: "no sugar added" },
+    { Icon: Snowflake, label: "no refrigeration needed" },
+    { Icon: Users, label: "for adults & kids" },
+  ];
 
-    window.addEventListener("scroll", handleScroll);
+  const superSnackHighlights = [
+    { Icon: Sparkles, label: "vibrant, elevated flavors", tone: "orange" },
+    { Icon: Droplets, label: "smooth & refreshing", tone: "blue" },
+    { Icon: Leaf, label: "packed full of superfoods", tone: "green" },
+    { Icon: MilkOff, label: "effortless, grab & go meal", tone: "magenta" },
+  ];
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [prevScrollPos]); */
-
+  // Contact form
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    subject: "",
     message: "",
   });
 
-  // Function to handle form submission
+  const [contactErrors, setContactErrors] = useState({});
+  const [contactTouched, setContactTouched] = useState({});
+
+  const handleChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Make the fetch request
-    fetch("https://nutrihelp-backend-deployment.onrender.com/api/contactus", {
+    // Validate
+    const err = {};
+    if (!formData.name.trim()) err.name = ERROR_MESSAGES.REQUIRED;
+    const emailErr = validateEmail(formData.email);
+    if (emailErr) err.email = emailErr;
+    if (!formData.subject.trim()) err.subject = ERROR_MESSAGES.REQUIRED;
+    if (!formData.message.trim()) err.message = ERROR_MESSAGES.REQUIRED;
+
+    if (Object.keys(err).length > 0) {
+      setContactErrors(err);
+      setContactTouched({ name: true, email: true, subject: true, message: true });
+      return;
+    }
+
+    fetch(`${process.env.REACT_APP_API_BASE_URL || 'https://localhost:8443'}/api/contactus`, {
       method: "POST",
       body: JSON.stringify(formData),
       headers: {
@@ -73,509 +149,662 @@ const Home = () => {
       },
     })
       .then((response) => {
-        // Handle successful response
-        console.log(response);
-        alert("Message sent successfully!");
-        // Reset form data after successful submission
-        setFormData({ name: "", email: "", message: "" });
+        if (!response.ok) throw new Error("Failed to send message");
+        toast.success("Message sent successfully!");
+        setFormData({ name: "", email: "", subject: "", message: "" });
+        setContactErrors({});
+        setContactTouched({});
       })
       .catch((error) => {
-        // Handle errors
         console.error("Error sending message:", error);
-        alert("Failed to send message. Please try again later.");
+        toast.error("Failed to send message. Please try again later.");
       });
   };
 
-  // Function to handle form input changes
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const [subscriptEmail, setSubscriptEmail] = useState("");
+  const [newsletterError, setNewsletterError] = useState("");
+  const [newsletterTouched, setNewsletterTouched] = useState(false);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+
+    const emailErr = validateEmail(subscriptEmail);
+    if (emailErr) {
+      setNewsletterError(emailErr);
+      setNewsletterTouched(true);
+      return;
+    }
+
+    fetch(`${process.env.REACT_APP_API_BASE_URL || 'https://localhost:8443'}/api/home/subscribe`, {
+      method: "POST",
+      body: JSON.stringify({ email: subscriptEmail }),
+      headers: {
+        Origin: "http://localhost:3000/",
+        "Content-Type": "application/json",
+      },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to Subscribe");
+        toast.success("Subscribed successfully!");
+        setSubscriptEmail("");
+        setNewsletterError("");
+        setNewsletterTouched(false);
+      })
+      .catch((error) => {
+        console.error("Error Subscribe message:", error);
+        toast.error("Failed to Subscribe. Please try again later.");
+      });
   };
 
-  const generateReviews = () => {
-    const reviews = Array.from({ length: 20 }, () => ({
-      avatar: faker.image.avatar(),
-      name: faker.name.fullName(),
-      review: faker.lorem.sentences(2),
-      rating: Math.ceil(Math.random() * 5),
-    }));
-    return reviews;
+  const onGetStarted = () => {
+    // If logged in, go to dashboard (menu/meal details); otherwise login
+    navigate(currentUser ? "/dashboard" : "/login");
   };
 
-  const reviews = generateReviews();
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-  const servicesData = [
-    {
-      title: "Meal Planning",
-      description:
-        "Access a variety of nutritious meal plans and recipes designed to meet your everyday nutritional needs and preferences.",
-      image: "images/4.jpg",
-    },
-    {
-      title: "Dietary Needs",
-      description:
-        "Our meal planning services cater to specific dietary requirements, allowing you to customize meal plans based on your needs.",
-      image: "images/5.jpg",
-    },
-    {
-      title: "Create Recipes",
-      description:
-        "Create your own personalized recipes tailored to your taste preferences and dietary requirements that suit your lifestyle.",
-      image: "images/6.jpg",
-    },
-    {
-      title: "Product Scanning",
-      description:
-        "Upload an image of a product to analyze its nutritional content and receive a detailed breakdown of its nutrients through a visual pie chart.",
-      image: "images/7.jpg",
-    },
-  ];
+  const [activeReview, setActiveReview] = useState(0);
+  const [swiperInstance, setSwiperInstance] = useState(null);
+  const aboutSectionRef = useRef(null);
+
+  const onAssistant = () => {
+    navigate(currentUser ? "/chat" : "/login");
+  };
+
+  useEffect(() => {
+    const lockHeroMaxWidth = () => {
+      const width = window.screen?.width || window.innerWidth;
+      document.documentElement.style.setProperty("--home-hero-max-width", `${width}px`);
+    };
+
+    lockHeroMaxWidth();
+    window.addEventListener("orientationchange", lockHeroMaxWidth);
+
+    return () => {
+      window.removeEventListener("orientationchange", lockHeroMaxWidth);
+    };
+  }, []);
+
+  useEffect(() => {
+    const aboutSection = aboutSectionRef.current;
+    if (!aboutSection) return undefined;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) {
+      aboutSection.style.setProperty("--about-progress", "1");
+      return undefined;
+    }
+
+    let rafId = null;
+    const updateAboutProgress = () => {
+      const rect = aboutSection.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || 1;
+      const triggerRange = viewportHeight * 0.85;
+
+      const enterProgress = (viewportHeight - rect.top) / triggerRange;
+      const exitProgress = rect.bottom / triggerRange;
+      const rawProgress = Math.min(enterProgress, exitProgress);
+      const progress = Math.max(0, Math.min(1, rawProgress));
+
+      aboutSection.style.setProperty("--about-progress", progress.toFixed(4));
+      rafId = null;
+    };
+
+    const queueUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(updateAboutProgress);
+    };
+
+    queueUpdate();
+    window.addEventListener("scroll", queueUpdate, { passive: true });
+    window.addEventListener("resize", queueUpdate);
+
+    return () => {
+      window.removeEventListener("scroll", queueUpdate);
+      window.removeEventListener("resize", queueUpdate);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   return (
     <FramerClient>
-      <section
-        className={`relative ${
-          darkMode
-            ? "bg-gradient-to-b from-slate-900 via-blue-900 to-bg"
-            : "bg-gradient-to-b from-violet-500 via-fuchsia-500 to-bg"
-        }`}
-      >
-        <div className="bg-transparent" id="no-bg">
-          <div
-            className={`w-screen flex flex-col md:flex-row justify-between items-center p-10 bg-transparent`}
-            id="no-bg"
-          >
-            <div className={`shadow-none bg-transparent`} id="no-bg">
-              <img src="/images/logos_white.png" alt="" className="w-[600px]" />
-              <h2
-                className={`text-4xl text-start leading-relaxed ${
-                  darkMode ? "text-blue-300" : "text-black"
-                }`}
+      <main className={`home ${darkMode ? "home-dark" : ""}`}>
+        {/* == HERO == */}
+        <section className="home-hero" aria-label="NutriHelp hero">
+          <div className="home-hero-split">
+            {/* Left: full-bleed food photo */}
+            <motion.div
+              className="home-hero-left"
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <img
+                src="/images/home_hero_left.png"
+                alt="Nutritious foods and healthy ingredients"
+                className="home-hero-illustration"
+                loading="lazy"
+              />
+              <div className="hero-left-overlay" aria-hidden="true" />
+              <motion.div
+                className="hero-floating-badge"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.05, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                aria-hidden="true"
               >
-                NutriHelp supports you in managing your general wellbeing,
-                nutrient-related diseases and deficiencies through personalised
-                nutrition advice
-              </h2>
-              <div
-                className={`flex justify-start items-center mt-6 shadow-none bg-transparent`}
-                id="no-bg"
-              >
-                <button
-                  type="button"
-                  className={`h-16 w-64 font-medium rounded-lg text-2xl px-5 py-2.5 text-center me-2 mb-2 shadow-md ${
-                    darkMode
-                      ? "text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800"
-                      : "text-gray-700 bg-gradient-to-r from-purple-500 to-pink-500 hover:bg-gradient-to-l focus:ring-4 focus:outline-none focus:ring-purple-200 dark:focus:ring-purple-800"
-                  }`}
-                >
-                  Get Start
-                </button>
-              </div>
-            </div>
-            <div className={`shadow-none bg-transparent`}>
-              <motion.img
-                initial={{
-                  x: 200,
-                  opacity: 0,
+                <span className="hero-badge-pulse" />
+                <span>Science-backed nutrition</span>
+              </motion.div>
+            </motion.div>
+
+            {/* Right: editorial content */}
+            <motion.div
+              className="home-hero-right"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.11, delayChildren: 0.2 } },
+              }}
+            >
+              {/* Row 1: eyebrow + title group */}
+              <motion.div
+                className="hero-title-group"
+                variants={{
+                  hidden: { opacity: 0, y: 28 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.75, ease: [0.22, 1, 0.36, 1] } },
                 }}
-                transition={{ duration: 1 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                src="https://cdni.iconscout.com/illustration/premium/thumb/cakes-taste-and-quality-feedback-illustration-download-in-svg-png-gif-file-formats--food-app-happy-customer-drink-illustrations-3444786.png"
+              >
+                <div className="hero-eyebrow">
+                  <span className="hero-eyebrow-dot" aria-hidden="true" />
+                  Your Health. Personalised.
+                </div>
+                <h1 className="home-hero-title">
+                  <span className="hero-title-line1">Empower</span>
+                  <span className="hero-title-line2">Journey</span>
+                </h1>
+              </motion.div>
+
+              {/* Row 2: divider */}
+              <motion.div
+                className="home-hero-divider"
+                aria-hidden="true"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: { opacity: 1, transition: { duration: 0.45 } },
+                }}
+              >
+                <span>GOALS</span>
+                <div className="home-hero-divider-line" />
+                <span>HEALTH</span>
+              </motion.div>
+
+              {/* Row 3: blob image */}
+              <motion.div
+                className="home-hero-blob"
+                variants={{
+                  hidden: { opacity: 0, scale: 0.96, y: 12 },
+                  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.85, ease: [0.22, 1, 0.36, 1] } },
+                }}
+              >
+                <img
+                  src="/images/home_hero_right.png"
+                  alt="Fresh fruit smoothie and nutritious ingredients"
+                  className="home-hero-right-image"
+                  loading="lazy"
+                />
+                <div className="hero-right-berries" aria-hidden="true">
+                  <span className="hero-right-berry hero-right-berry-1">
+                    <img src="/images/hero_blueberry.png" alt="" loading="lazy" />
+                  </span>
+                  <span className="hero-right-berry hero-right-berry-2">
+                    <img src="/images/hero_blueberry.png" alt="" loading="lazy" />
+                  </span>
+                </div>
+              </motion.div>
+
+              {/* Row 4: summary + pillars */}
+              <motion.div
+                className="home-hero-bottom"
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } },
+                }}
+              >
+                <div className="home-hero-summary">
+                  <h2>Our 4 Nutri-help Pillars</h2>
+                  <p>
+                    Practical nutrition support to build healthy habits, improve
+                    energy, and stay consistent with long-term wellness goals.
+                  </p>
+                  {/* <div className="home-hero-actions">
+                    <button className="hero-btn-primary" type="button" onClick={onGetStarted}>
+                      <span className="hero-btn-track">
+                        <span className="hero-btn-icon" aria-hidden="true">
+                          <ArrowRight size={24} />
+                        </span>
+                        <span className="hero-btn-text hero-btn-text-start">Get Started</span>
+                        <span className="hero-btn-text hero-btn-text-end">Boost Your Life Style</span>
+                      </span>
+                    </button>
+                  </div> */}
+                </div>
+
+                <div className="home-hero-actions">
+                    <button className="hero-btn-primary" type="button" onClick={onGetStarted}>
+                      <span className="hero-btn-track">
+                        <span className="hero-btn-icon" aria-hidden="true">
+                          <ArrowRight size={24} />
+                        </span>
+                        <span className="hero-btn-text hero-btn-text-start">Get Started</span>
+                        <span className="hero-btn-text hero-btn-text-end">Boost Your Life Style</span>
+                      </span>
+                    </button>
+                </div>
+                {/* <ul className="home-hero-pillars" aria-label="Nutri-help pillars">
+                  {[
+                    { Icon: Utensils, label: "Balanced Meals" },
+                    { Icon: Scale, label: "Smart Portion Control" },
+                    { Icon: HeartPulse, label: "Quality Protein Choices" },
+                    { Icon: Droplets, label: "Daily Hydration" },
+                  ].map(({ Icon, label }, i) => (
+                    <li key={label}>
+                      <span className="pillar-num" aria-hidden="true">0{i + 1}</span>
+                      <span className="pillar-icon" aria-hidden="true">
+                        <Icon size={16} />
+                      </span>
+                      <p>{label}</p>
+                    </li>
+                  ))}
+                </ul> */}
+              </motion.div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* == ABOUT == */}
+        <section
+          id="about"
+          ref={aboutSectionRef}
+          className="home-about"
+          aria-label="About NutriHelp"
+        >
+          <div className="home-container about-spotlight">
+            <div className="about-spotlight-copy">
+              <h2 className="about-spotlight-title">Your personal nutritionist</h2>
+              <p className="about-spotlight-text">
+                We bridge the gap between complex dietary science and your daily life.
+                Our approach combines personalized meal planning with medical-grade
+                nutritional support, ensuring every bite is tailored to your unique
+                health needs and preferences.
+              </p>
+            </div>
+
+            <div className="about-spotlight-media" aria-hidden="true">
+              <img
+                src="/images/about_spotlight_main.png"
+                alt=""
+                className="about-spotlight-main"
+                loading="lazy"
+              />
+              <img
+                src="/images/symptom_assessment/grilled_chicken.jpg"
+                alt=""
+                className="about-spotlight-accent"
+                loading="lazy"
               />
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <main>
-        <section
-          id="about"
-          className={`w-screen py-16 ${
-            darkMode ? "bg-transparent text-white" : "bg-gray-100 text-gray-900"
-          }`}
-        >
-          <div
-            id="no-bg"
-            className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between px-6 md:px-12 lg:px-20"
-          >
-            <motion.img
-              initial={{ x: -200, opacity: 0 }}
-              transition={{ duration: 1 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              src="https://cdni.iconscout.com/illustration/premium/thumb/doctor-consultation-illustration-download-in-svg-png-gif-file-formats--checking-patient-medical-check-up-hospital-checkup-anamnesis-system-pack-healthcare-illustrations-7065409.png"
-              className="w-full md:w-[500px] rounded-md shadow-lg"
-              alt="Doctor Consultation"
-            />
-            <div id="no-bg" className="md:w-1/2 mt-8 md:mt-0 md:pl-12">
-              <h3 className="text-4xl font-bold mb-6 dark:text-blue-300">
-                NutriHelp
-              </h3>
-              <p className="text-lg leading-relaxed mb-6">
-                NutriHelp assists you in managing your overall well-being,
-                preventing nutrient-related diseases, and overcoming
-                deficiencies through personalized nutrition plans.
-              </p>
-              <div id="no-bg" className="space-y-6">
-                <div id="no-bg" className="flex items-start space-x-4">
-                  <HeartPulse
-                    className="text-red-500 dark:text-red-300"
-                    size={40}
-                  />
-                  <div id="no-bg">
-                    <h4 className="text-2xl font-semibold">Diagnosis</h4>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      Get accurate health assessments to identify nutritional
-                      deficiencies and risks early.
-                    </p>
-                  </div>
-                </div>
-                <div id="no-bg" className="flex items-start space-x-4">
-                  <Stethoscope
-                    className="text-blue-500 dark:text-blue-300"
-                    size={40}
-                  />
-                  <div id="no-bg">
-                    <h4 className="text-2xl font-semibold">
-                      Personalized Plan
-                    </h4>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      Tailored nutrition plans designed to fit your specific
-                      health needs and goals.
-                    </p>
-                  </div>
-                </div>
-                <div id="no-bg" className="flex items-start space-x-4">
-                  <Utensils
-                    className="text-green-500 dark:text-green-300"
-                    size={40}
-                  />
-                  <div id="no-bg">
-                    <h4 className="text-2xl font-semibold">Dine Pad</h4>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      Smart meal tracking and recommendations for a balanced and
-                      nutritious diet.
-                    </p>
-                  </div>
+        {/* == SUPERFOOD STORY == */}
+        <section className="home-super-snack" aria-label="Superfood meal feature">
+          <div className="home-container">
+            <div className="super-snack-benefits" role="list" aria-label="Benefits">
+              {superSnackBenefits.map(({ Icon, label }) => (
+                <article key={label} className="super-benefit-item" role="listitem">
+                  <span className="super-benefit-icon" aria-hidden="true">
+                    <Icon size={30} />
+                  </span>
+                  <p>{label}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="super-snack-hero">
+              <div className="super-snack-copy">
+                <span className="super-snack-pill">ditch the dry bar</span>
+                <h2>
+                  a new kind
+                  <br />
+                  of super
+                  <br />
+                  snack
+                </h2>
+                <p>
+                  Our nutrient-rich bowls combine freshness, balanced macros,
+                  and clean ingredients in a convenient format for everyday health.
+                </p>
+              </div>
+
+              <div className="super-snack-visual">
+                <div className="super-snack-bg" aria-hidden="true" />
+                <img
+                  src="/images/home-super-snack/meal-plate.png"
+                  alt="Healthy meal plate"
+                  className="super-snack-plate"
+                  loading="lazy"
+                />
+
+                <div className="super-snack-highlights">
+                  {superSnackHighlights.map(({ Icon, label, tone }) => (
+                    <div key={label} className="super-highlight-row">
+                      <span className={`super-highlight-dot ${tone}`} aria-hidden="true">
+                        <Icon size={24} />
+                      </span>
+                      <p>{label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
         </section>
-        <section id="" className="py-16">
-          <div
-            id="no-bg"
-            className="max-w-6xl mx-auto bg-transparent shadow-xl rounded-lg p-12 md:p-24"
-          >
-            <div id="no-bg" className="text-center">
-              <h2
-                className={`text-4xl font-bold mb-6 ${
-                  darkMode ? "text-blue-200" : "text-gray-900"
-                }`}
-              >
-                Services
-              </h2>
-              <p className="text-lg text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
-                At NutriHelp, we offer a range of services designed to support
-                your overall well-being and nutritional needs. Our dedicated
-                team provides personalized solutions to help you achieve your
-                health goals and improve your quality of life.
-              </p>
-            </div>
-            <div
-              id="no-bg"
-              className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8"
-            >
-              {servicesData.map((service, index) => (
-                <div
-                  id="no-bg"
-                  key={index}
-                  className={`cursor-pointer shadow-2xl rounded-xl p-10 flex flex-col items-center text-center transition-all transform hover:scale-105 duration-300
-                ${
-                  servicesData.length === 4 && index === 3
-                    ? "md:col-span-1 md:col-start-2"
-                    : ""
-                }`}
-                >
-                  <div id="no-bg" className="w-20 h-20">
-                    <img
-                      src={service.image}
-                      alt={service.title}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
 
-                  <h4
-                    id="no-bg"
-                    className="font-bold text-2xl mt-5 text-gray-900 dark:text-gray-200"
-                  >
-                    {service.title}
-                  </h4>
-                  <p
-                    id="no-bg"
-                    className="mt-3 text-gray-600 dark:text-gray-400"
-                  >
-                    {service.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-        <section id="no-bg" className="py-16">
-          <div className="bg-transparent text-center mb-10">
-            <h2
-              className={`text-4xl font-bold ${
-                darkMode ? "text-blue-200" : "text-gray-900"
-              }`}
-            >
-              User Reviews
-            </h2>
-            <p className="text-lg text-gray-700 dark:text-gray-300">
-              See what our users have to say about NutriHelp!
-            </p>
-          </div>
-          <div className="w-full px-4 md:px-12 lg:px-24">
+        {/* == TOOLS == */}
+        <section className="home-services home-tools" aria-label="Our Tools for Healthy Aging">
+          <div className="home-container">
+            <header className="home-tools-header">
+              <p className="home-tools-try">TRY NOW</p>
+              <h2 className="home-tools-title">Our Services</h2>
+            </header>
+
             <Swiper
-              effect={"coverflow"}
-              grabCursor={true}
-              centeredSlides={true}
-              slidesPerView={"auto"}
-              coverflowEffect={{
-                rotate: 30,
-                stretch: 0,
-                depth: 100,
-                modifier: 1,
-                slideShadows: false,
+              modules={[Pagination, Autoplay]}
+              className="home-tools-carousel"
+              grabCursor
+              centeredSlides
+              initialSlide={0}
+              loop
+              speed={6200}
+              spaceBetween={24}
+              touchEventsTarget="container"
+              touchStartPreventDefault={false}
+              autoplay={{
+                delay: 1,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: true,
+                waitForTransition: false,
+              }}
+              preventClicks={false}
+              preventClicksPropagation={false}
+              slideToClickedSlide
+              watchSlidesProgress
+              slidesPerView={1.12}
+              breakpoints={{
+                640: { slidesPerView: 1.5, spaceBetween: 18 },
+                992: { slidesPerView: 3, spaceBetween: 26 },
+                1280: { slidesPerView: 3, spaceBetween: 28 },
               }}
               pagination={{ clickable: true }}
-              navigation={true}
-              modules={[EffectCoverflow, Pagination, Navigation]}
-              className="mySwiper"
             >
-              {reviews.map((review, index) => (
-                <SwiperSlide key={index} className="max-w-md">
-                  <div
-                    className={`flex flex-col items-center p-8 shadow-lg rounded-lg h-auto transition-all duration-300 transform hover:scale-105 ${
-                      darkMode
-                        ? "bg-gray-800 text-white"
-                        : "bg-white text-gray-900"
-                    }`}
-                  >
-                    <img
-                      src={review.avatar}
-                      alt={`${review.name}'s avatar`}
-                      className="w-20 h-20 rounded-full border-4 border-gray-300 shadow-lg"
-                    />
+              {services.map((s, i) => (
+                <SwiperSlide key={s.title} className="home-tools-slide">
+                  <article className="home-tools-card w-100">
+                    <button
+                      type="button"
+                      className="home-tools-card-btn"
+                      onClick={() => navigate(s.route)}
+                      aria-label={`Learn more about ${s.title}`}
+                    >
+                      <div className="home-tools-card-media">
+                        <img src={s.image} alt={s.title} className="home-tools-card-image" loading="lazy" />
+                        <span className="home-tools-card-index">{String(i + 1).padStart(2, "0")}</span>
+                      </div>
 
-                    <h4 className="mt-4 text-2xl font-semibold">
-                      {review.name}
-                    </h4>
-                    <div className="text-yellow-500 text-xl mt-2">
-                      {"★".repeat(review.rating)}
-                      {"☆".repeat(5 - review.rating)}
-                    </div>
-                    <p className="mt-4 text-lg text-center italic text-gray-600 dark:text-gray-300">
-                      "{review.review}"
-                    </p>
-                  </div>
+                      <div className="home-tools-card-body">
+                        <h3 className="home-tools-card-title">{s.title}</h3>
+                        <p className="home-tools-card-desc">{s.description}</p>
+                        <span className="home-tools-card-cta">{s.cta.replace("→", "").trim()}</span>
+                      </div>
+                    </button>
+                  </article>
                 </SwiperSlide>
               ))}
             </Swiper>
           </div>
         </section>
-        <section
-          id="contact"
-          className="py-16 px-5 bg-gray-50 dark:bg-transparent"
-        >
-          <div className="max-w-5xl mx-auto text-center" id="no-bg">
-            <h2
-              className={`text-3xl font-bold ${
-                darkMode ? "text-blue-200" : "text-gray-900"
-              }`}
+
+        {/* == REVIEWS == */}
+        <section className="home-reviews" aria-label="User reviews">
+          <div className="home-container">
+            <Swiper
+              onSwiper={setSwiperInstance}
+              onSlideChange={(swiper) => setActiveReview(swiper.activeIndex)}
+              modules={[Pagination, Navigation]}
+              className="reviews-slider"
             >
-              Contact
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300 mt-2">
-              Have questions? Reach out to us! We're happy to help.
-            </p>
-          </div>
+              {reviews.map((review, index) => (
+                <SwiperSlide key={index} className="review-slide-full">
+                  <div className={`review-split ${darkMode ? "review-split-dark" : ""}`}>
+                    <div className="review-content-left">
+                      <Quote className="review-quote-icon" size={40} fill="currentColor" opacity={0.2} />
+                      <h2 className="review-text-large">“{review.review}”</h2>
+                      <div className="review-user-block">
+                        <img
+                          src={review.avatar}
+                          alt={`${review.name}'s avatar`}
+                          className="review-avatar"
+                          loading="lazy"
+                        />
+                        <div className="review-user-info">
+                          <h3 className="review-name">{review.name}</h3>
+                          <span className="review-verified">Verified user</span>
+                        </div>
+                      </div>
+                      <div className="review-rating" aria-label={`Rating ${review.rating} out of 5`}>
+                        {"★".repeat(review.rating)}
+                        {"☆".repeat(5 - review.rating)}
+                      </div>
+                    </div>
+                    <div className="review-image-right">
+                      <img src="/images/7.jpg" alt="Review related view" className="review-large-img" />
+                    </div>
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
 
-          {/* Contact Info & Form - Adjusted Grid for Width Balance */}
-          <div
-            className="mt-10 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10 max-w-6xl mx-auto"
-            id="no-bg"
-          >
-            {/* Contact Info - Smaller Width */}
-            <div className="flex flex-col space-y-6" id="no-bg">
-              <div
-                className={`flex items-center space-x-4 p-5 rounded-lg shadow-md hover:transform hover:scale-105 transition-all duration-300 ${
-                  darkMode ? "bg-gray-600" : "bg-white"
-                }`}
-                id="no-bg"
+            <div className="review-nav-footer">
+              <button 
+                className="review-nav-btn" 
+                onClick={() => swiperInstance?.slidePrev()}
+                aria-label="Previous review"
               >
-                <MapPin className="text-blue-500 w-6 h-6" />
-                <div id="no-bg">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-200">
-                    Location
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    398 Lonsdale St. Melbourne Victoria 3000
-                  </p>
-                </div>
-              </div>
+                <ChevronRight size={20} style={{ transform: 'rotate(180deg)' }} />
+              </button>
+              
+              <span className="review-status">Review {activeReview + 1} of {reviews.length}</span>
 
-              <div
-                className={`flex items-center space-x-4 p-5 rounded-lg shadow-md hover:transform hover:scale-105 transition-all duration-300 ${
-                  darkMode ? "bg-gray-600" : "bg-white"
-                }`}
-                id="no-bg"
+              <button 
+                className="review-nav-btn" 
+                onClick={() => swiperInstance?.slideNext()}
+                aria-label="Next review"
               >
-                <Mail className="text-blue-500 w-6 h-6" />
-                <div id="no-bg">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-200">
-                    Email
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    info@example.com
-                  </p>
-                </div>
-              </div>
-
-              <div
-                id="no-bg"
-                className={`flex items-center space-x-4 p-5 rounded-lg shadow-md hover:transform hover:scale-105 transition-all duration-300 ${
-                  darkMode ? "bg-gray-600" : "bg-white"
-                }`}
-              >
-                <Phone className="text-blue-500 w-6 h-6" />
-                <div id="no-bg">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-200">
-                    Call
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400">+12132</p>
-                </div>
-              </div>
+                <ChevronRight size={20} />
+              </button>
             </div>
 
-            {/* Contact Form - Wider Width */}
-            <form
-              onSubmit={handleSubmit}
-              className={`p-6 rounded-lg shadow-md ${
-                darkMode ? "bg-transparent" : "bg-white"
-              }`}
-            >
-              <div id="no-bg" className="flex flex-col gap-4">
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Your Name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full p-3 border rounded-md dark:bg-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="Your Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full p-3 border rounded-md dark:bg-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
 
-              <input
-                type="text"
-                name="subject"
-                placeholder="Subject"
-                value={formData.subject}
-                onChange={handleChange}
-                className="w-full p-3 mt-4 border rounded-md dark:bg-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500"
-                required
-              />
 
-              <textarea
-                name="message"
-                rows="4"
-                placeholder="Message"
-                value={formData.message}
-                onChange={handleChange}
-                className="w-full p-3 mt-4 border rounded-md dark:bg-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500"
-                required
-              ></textarea>
-
-              <button
-                type="submit"
-                className="w-full mt-5 bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition"
-              >
-                Submit
-              </button>
-            </form>
           </div>
         </section>
-      </main>
 
-      <footer className="bg-gray-100 dark:bg-transparent text-gray-900 dark:text-white py-10">
-        {/* Newsletter Section */}
-        <div className="bg-blue-50 dark:bg-gray-900 py-10">
-          <div className="container mx-auto px-5 text-center">
-            <h4 className="text-xl font-semibold">
-              Subscribe to our Newsletter
-            </h4>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Stay updated with our latest news and insights.
-            </p>
-            <form className="mt-4 flex justify-center items-center gap-3">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="p-3 w-72 rounded-md border dark:bg-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                className="bg-blue-500 text-white px-5 py-2 rounded-md hover:bg-blue-600 transition"
-              >
-                Subscribe
-              </button>
-            </form>
-          </div>
-        </div>
+        {/* == CONTACT == */}
+        <section id="contact" className="home-contact" aria-label="Contact us">
+          <div className="home-container">
+            <div className="home-contact-layout">
+              <div className="home-contact-intro">
+                <h2 className="home-contact-title">Let's Begin Your Wellness Journey</h2>
+                <p className="home-contact-lead">
+                  We are here to simplify your nutrition journey. Reach out to schedule
+                  a personalized consultation and start your path to healthy aging today.
+                </p>             
+              </div>
 
-        {/* Footer Main Section */}
-        <div className="container mx-auto px-5 mt-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Contact Info */}
-          <div>
-            <h3 className="text-2xl font-bold">NutriHelp</h3>
-            <hr className="my-3 border-gray-400 dark:border-gray-700" />
-            <p>1235584Y4Y83</p>
-          </div>
+              <div className="contact-form-wrapper">
+                <form className="contact-form" onSubmit={handleSubmit} aria-label="Contact form">
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label htmlFor="name">Full Name</label>
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        value={formData.name}
+                        onChange={handleChange}
+                        onBlur={() => setContactTouched(prev => ({ ...prev, name: true }))}
+                        style={{ borderColor: contactErrors.name && contactTouched.name ? 'var(--error-color, red)' : '' }}
+                      />
+                      <FieldError error={contactErrors.name} touched={contactTouched.name} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="email">Email Address</label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="example@email.com"
+                        value={formData.email}
+                        onChange={handleChange}
+                        onBlur={() => setContactTouched(prev => ({ ...prev, email: true }))}
+                        style={{ borderColor: contactErrors.email && contactTouched.email ? 'var(--error-color, red)' : '' }}
+                      />
+                      <FieldError error={contactErrors.email} touched={contactTouched.email} />
+                    </div>
+                  </div>
 
-          {/* Social Links */}
-          <div>
-            <h4 className="text-xl font-semibold">Connect with Us</h4>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Follow us on social media for updates and more.
-            </p>
-            <div className="flex gap-4 mt-4">
-              {[
-                { icon: <Twitter />, link: "#" },
-                { icon: <Facebook />, link: "#" },
-                { icon: <Instagram />, link: "#" },
-                { icon: <Linkedin />, link: "#" },
-                { icon: <Mail />, link: "#" },
-              ].map(({ icon, link }, index) => (
-                <a
-                  key={index}
-                  href={link}
-                  className="p-2 rounded-full bg-gray-200 dark:bg-gray-800 hover:bg-blue-500 dark:hover:bg-blue-600 transition"
-                >
-                  {icon}
-                </a>
-              ))}
+                  <div className="form-group">
+                    <label htmlFor="subject">Subject</label>
+                    <input
+                      id="subject"
+                      name="subject"
+                      type="text"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      onBlur={() => setContactTouched(prev => ({ ...prev, subject: true }))}
+                      style={{ borderColor: contactErrors.subject && contactTouched.subject ? 'var(--error-color, red)' : '' }}
+                    />
+                    <FieldError error={contactErrors.subject} touched={contactTouched.subject} />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="message">Message</label>
+                    <textarea
+                      id="message"
+                      name="message"
+                      rows="5"
+                      placeholder="Tell us about your dietary goals or concerns"
+                      value={formData.message}
+                      onChange={handleChange}
+                      onBlur={() => setContactTouched(prev => ({ ...prev, message: true }))}
+                      style={{ borderColor: contactErrors.message && contactTouched.message ? 'var(--error-color, red)' : '' }}
+                    />
+                    <FieldError error={contactErrors.message} touched={contactTouched.message} />
+                  </div>
+
+                  <button type="submit" className="btn-primary btn-full btn-send">
+                    Send Message
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        {/* == FOOTER (social links + contact) == */}
+        <footer className="home-footer" aria-label="Footer">
+          <div className="footer-inner home-container">
+            
+            <div className="footer-column footer-brand">
+              <img src="/images/logo.png" alt="NutriHelp logo" className="footer-logo" />
+              <div className="footer-details">
+                <div className="footer-detail-row">
+                  <span>799 Nutrihelp Rd,<br/>Melbourne, Vic, 3000</span>
+                </div>
+                <div className="footer-detail-row">
+                  <span>info@nutrihelp.com.au<br/>1300 798 999</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="footer-column footer-nav-col">
+              <h3>NAVIGATION</h3>
+              <ul className="footer-nav-list">
+                <li><button type="button" onClick={() => scrollToSection("about")}>About</button></li>
+                <li><Link to="/faq">Privacy</Link></li>
+                <li><Link to="/faq">Terms</Link></li>
+                <li><button type="button" onClick={() => scrollToSection("contact")}>Contact</button></li>
+              </ul>
+            </div>
+
+            <div className="footer-column footer-social-col">
+              <h3>SOCIAL</h3>
+              <div className="footer-social" aria-label="Social media links">
+                <a href="#" aria-label="Facebook"><Facebook size={20}/></a>
+                <a href="#" aria-label="Instagram"><Instagram size={20}/></a>
+                <a href="#" aria-label="LinkedIn"><Linkedin size={20}/></a>
+                <a href="#" aria-label="Twitter"><Twitter size={20}/></a>
+              </div>
+            </div>
+
+            <div className="footer-column footer-newsletter">
+              <h3>NEWSLETTER</h3>
+              <p>Stay updated with our latest news and insights.</p>
+              <form onSubmit={handleSubscribe} className="newsletter-form">
+                <label className="sr-only" htmlFor="newsletterEmail">Email</label>
+                <div className="newsletter-input-group">
+                  <input
+                    id="newsletterEmail"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={subscriptEmail}
+                    onChange={(e) => {
+                      setSubscriptEmail(e.target.value);
+                      setNewsletterError("");
+                    }}
+                    onBlur={() => setNewsletterTouched(true)}
+                    style={{ borderColor: newsletterError && newsletterTouched ? 'red' : '' }}
+                  />
+                  <button type="submit" className="btn-primary btn-subscribe">
+                    Subscribe
+                  </button>
+                </div>
+                <FieldError error={newsletterError} touched={newsletterTouched} />
+              </form>
+            </div>
+
+          </div>
+          <div className="footer-bottom">
+            <p className="copyright">©️ 2026 NutriHelp. All rights reserved.</p>
+          </div>
+        </footer>
+
+        {/* == Floating Assistant Button == */}
+        <button
+          className="assistant-btn"
+          aria-label="Open assistant"
+          type="button"
+          onClick={onAssistant}
+        >
+          <Bot size={26} aria-hidden="true" />
+          <span>Assistant</span>
+        </button>
+      </main>
     </FramerClient>
   );
 };

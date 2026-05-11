@@ -1,71 +1,243 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom';
-import { Grid, GridColumn, GridRow } from 'semantic-ui-react';
-import DashboardGraph from '../../components/Dashboard-Graph';
-import Card from './MenuCard';
-import './MenuCard.css';
-import imageMapping from './importImages.js';
-import WaterTracker from '../../components/WaterTracker';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import DashboardGraph from "../../components/Dashboard-Graph";
+import Card from "./MenuCard";
+import "./MenuCard.css";
+import "./Menustyles.css";
+import imageMapping from "./importImages.js";
+import WaterTracker from "../../components/WaterTracker";
 
+const MEAL_SELECTIONS_STORAGE_KEY = "nutrihelp_add_meal_selections_by_date_v1";
 
-const Dashboard = () => {
-  const location = useLocation();
-  const selectedItems = location.state?.selectedItems || [];
-  const totalNutrition = location.state?.totalNutrition || {
-    calories: 0,
-    proteins: 0,
-    fats: 0,
-    vitamins: 0,
-    sodium: 0,
-  };
+const NUTRITION_BY_TYPE = {
+  breakfast: { calories: 290, proteins: 16, fats: 9, vitamins: 120, sodium: 180 },
+  lunch: { calories: 430, proteins: 26, fats: 14, vitamins: 170, sodium: 360 },
+  dinner: { calories: 520, proteins: 32, fats: 18, vitamins: 210, sodium: 460 },
+  others: { calories: 210, proteins: 8, fats: 7, vitamins: 90, sodium: 140 },
+};
 
+const LEVEL_FACTOR = {
+  easy: 1,
+  medium: 1.15,
+  hard: 1.3,
+};
 
-  const [activeTab, setActiveTab] = useState('breakfast');
-  const [groupedItems, setGroupedItems] = useState({
-    breakfast: [],
-    lunch: [],
-    dinner: []
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getTodayISO() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function hasUsableMealImage(meal) {
+  const imageValue = String(meal?.image || meal?.imageUrl || "").trim();
+  return Boolean(
+    imageValue &&
+      !imageValue.startsWith("blob:") &&
+      !imageValue.includes("/images/meal-mock/placeholder")
+  );
+}
+
+function getMealDisplayScore(meal) {
+  const nutrition = meal?.nutrition && typeof meal.nutrition === "object" ? meal.nutrition : {};
+  return (
+    (hasUsableMealImage(meal) ? 10 : 0) +
+    (meal?.description ? 2 : 0) +
+    (parseNumber(nutrition.calories) > 0 ? 1 : 0)
+  );
+}
+
+function getCanonicalMealKey(meal, fallback = "") {
+  const mealType = normalizeMealType(meal?.mealType);
+  const titleKey = normalize(meal?.title || meal?.name);
+  const recipeIdKey = normalize(meal?.recipeId);
+  const idKey = normalize(meal?.id || fallback);
+  const identityKey =
+    titleKey ||
+    (recipeIdKey && recipeIdKey !== "null" ? recipeIdKey : "") ||
+    idKey ||
+    normalize(fallback);
+
+  return identityKey ? `${mealType}|${identityKey}` : "";
+}
+
+function dedupeSelectionMap(selectionMap) {
+  if (!selectionMap || typeof selectionMap !== "object") return {};
+
+  const bestByKey = {};
+  Object.entries(selectionMap).forEach(([entryKey, meal]) => {
+    if (!meal || typeof meal !== "object") return;
+
+    const normalizedMeal = {
+      ...meal,
+      mealType: normalizeMealType(meal?.mealType),
+    };
+    const canonicalKey = getCanonicalMealKey(normalizedMeal, entryKey);
+    if (!canonicalKey) return;
+
+    const score = getMealDisplayScore(normalizedMeal);
+    const current = bestByKey[canonicalKey];
+    if (!current || score >= current.score) {
+      bestByKey[canonicalKey] = { entryKey, meal: normalizedMeal, score };
+    }
   });
 
-  useEffect(() => {
-    const newGroupedItems = {
-      breakfast: selectedItems.filter(item => item.mealType === 'breakfast'),
-      lunch: selectedItems.filter(item => item.mealType === 'lunch'),
-      dinner: selectedItems.filter(item => item.mealType === 'dinner'),
-    };
-    setGroupedItems(newGroupedItems);
-  }, [selectedItems]);
+  return Object.fromEntries(
+    Object.values(bestByKey).map(({ entryKey, meal }) => [entryKey, meal])
+  );
+}
 
+function dedupeSelectionsByDate(selectionsByDate) {
+  if (!selectionsByDate || typeof selectionsByDate !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(selectionsByDate).map(([date, selectionMap]) => [
+      date,
+      dedupeSelectionMap(selectionMap),
+    ])
+  );
+}
+
+function readSelectionsByDate() {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(MEAL_SELECTIONS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? dedupeSelectionsByDate(parsed) : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeMealType(value) {
+  const normalized = normalize(value);
+  if (normalized === "breakfast" || normalized === "lunch" || normalized === "dinner") {
+    return normalized;
+  }
+  if (normalized === "snack" || normalized === "snacks" || normalized === "other") {
+    return "others";
+  }
+  return "others";
+}
+
+function parseNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const source = String(value ?? "").replace(/,/g, "");
+  const matched = source.match(/-?\d+(?:\.\d+)?/);
+  if (!matched) return 0;
+  const parsed = Number(matched[0]);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function estimateMealNutrition(meal) {
+  const mealType = normalizeMealType(meal?.mealType);
+  const level = normalize(meal?.level);
+  const factor = LEVEL_FACTOR[level] || 1;
+  const base = NUTRITION_BY_TYPE[mealType] || NUTRITION_BY_TYPE.breakfast;
+  const nutrition = meal?.nutrition && typeof meal.nutrition === "object" ? meal.nutrition : {};
+
+  return {
+    calories: Math.round(parseNumber(nutrition.calories) || base.calories * factor),
+    proteins: Math.round(parseNumber(nutrition.proteins ?? nutrition.protein) || base.proteins * factor),
+    fats: Math.round(parseNumber(nutrition.fats ?? nutrition.fat) || base.fats * factor),
+    vitamins: Math.round(parseNumber(nutrition.vitamins ?? nutrition.fiber) || base.vitamins * factor),
+    sodium: Math.round(parseNumber(nutrition.sodium) || base.sodium * factor),
+  };
+}
+
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState("breakfast");
+  const [selectionsByDate, setSelectionsByDate] = useState(() => readSelectionsByDate());
+
+  const todayIso = useMemo(() => getTodayISO(), []);
+
+  useEffect(() => {
+    const syncSelections = () => {
+      setSelectionsByDate(readSelectionsByDate());
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        syncSelections();
+      }
+    };
+
+    window.addEventListener("storage", syncSelections);
+    window.addEventListener("focus", syncSelections);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("storage", syncSelections);
+      window.removeEventListener("focus", syncSelections);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MEAL_SELECTIONS_STORAGE_KEY, JSON.stringify(selectionsByDate));
+    } catch {
+      // Menu rendering should continue even if localStorage is unavailable.
+    }
+  }, [selectionsByDate]);
+
+  const selectedItems = useMemo(() => {
+    const todayMap = selectionsByDate[todayIso] || {};
+    return Object.values(todayMap);
+  }, [selectionsByDate, todayIso]);
+
+  const groupedItems = useMemo(
+    () => ({
+      breakfast: selectedItems.filter((item) => normalizeMealType(item?.mealType) === "breakfast"),
+      lunch: selectedItems.filter((item) => normalizeMealType(item?.mealType) === "lunch"),
+      dinner: selectedItems.filter((item) => normalizeMealType(item?.mealType) === "dinner"),
+      snack: selectedItems.filter((item) => normalizeMealType(item?.mealType) === "others"),
+    }),
+    [selectedItems],
+  );
+
+  const addMealTab = useMemo(() => (activeTab === "snack" ? "others" : activeTab), [activeTab]);
+
+  const totalNutrition = useMemo(
+    () =>
+      selectedItems.reduce(
+        (accumulator, meal) => {
+          const nutrition = estimateMealNutrition(meal);
+          return {
+            calories: accumulator.calories + nutrition.calories,
+            proteins: accumulator.proteins + nutrition.proteins,
+            fats: accumulator.fats + nutrition.fats,
+            vitamins: accumulator.vitamins + nutrition.vitamins,
+            sodium: accumulator.sodium + nutrition.sodium,
+          };
+        },
+        {
+          calories: 0,
+          proteins: 0,
+          fats: 0,
+          vitamins: 0,
+          sodium: 0,
+        },
+      ),
+    [selectedItems],
+  );
 
   const renderMealItems = (mealType) => {
     const items = groupedItems[mealType];
-
-    if (!items || items.length === 0) {
-      return <div>No items available</div>;
-    }
+    if (!items || items.length === 0) return <div className="no-items">No items available</div>;
 
     return (
       <div className="cards-container">
-        {items.map((item, index) => (
-          <Card key={index} item={item} imageMapping={imageMapping}/>
+        {items.map((item, idx) => (
+          <Card key={item?.id || item?.recipeId || idx} item={item} imageMapping={imageMapping} />
         ))}
       </div>
     );
   };
-
-
-
-  const menuGraphComponent = () => (
-    <div className="nutrition-summary">
-      <DashboardGraph
-        totalNutritionCalorie={totalNutrition.calories}
-        totalNutritionProtiens={totalNutrition.proteins}
-        totalNutritionFats={totalNutrition.fats}
-        totalNutritionVitamins={totalNutrition.vitamins}
-        totalNutritionSodium={totalNutrition.sodium}
-      />
-    </div>
-  );
 
   return (
     <main>
@@ -73,50 +245,91 @@ const Dashboard = () => {
         <div className="Title">
           <h2>MENU</h2>
         </div>
+
         <Link to="/appointment" className="button-link">
           <button className="appointment-btn">Book an Appointment</button>
         </Link>
 
-        <div className="daySelctionText">
-          <h3>Today</h3>
+        <div style={{ height: 16 }} />
+
+        {/* Row 1: Today aligned to the middle (Lunch) column, width matches the meal pane only */}
+        <div className="today-row">
+          <div className="today-align-grid">
+            <div className="today-text">Today · {todayIso}</div>
+            <Link
+              to={`/meal/${addMealTab}?date=${encodeURIComponent(todayIso)}`}
+              state={{ defaultMealType: addMealTab, planDate: todayIso }}
+              className="edit-menu-btn"
+            >
+              Edit Menu
+            </Link>
+          </div>
+          <div className="today-row-spacer" />
         </div>
 
+        {/* Row 2: Meals (tabs+cards) + Water (same height as tabs+cards, NOT including Today) */}
+        <div className="meal-water-row">
+          <div className="meal-pane">
+            <nav className="meal-nav-tabs" role="tablist" aria-label="Meal tabs">
+              <button
+                type="button"
+                className={`nav-tab-btn ${activeTab === "breakfast" ? "active" : ""}`}
+                onClick={() => setActiveTab("breakfast")}
+                aria-selected={activeTab === "breakfast"}
+              >
+                Breakfast
+              </button>
 
-        {/* Tabs Navigation */}
-        <nav>
-          <a
-            className={`breakfast-btn ${activeTab === 'breakfast' ? 'active' : ''}`}
-            onClick={() => setActiveTab('breakfast')}
-          >
-            Breakfast
-          </a>
-          <a
-            className={`lunch-btn ${activeTab === 'lunch' ? 'active' : ''}`}
-            onClick={() => setActiveTab('lunch')}
-          >
-            Lunch
-          </a>
-          <a
-            className={`dinner-btn ${activeTab === 'dinner' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dinner')}
-          >
-            Dinner
-          </a>
-          <div className="tab-underline"></div>
-        </nav>
+              <button
+                type="button"
+                className={`nav-tab-btn ${activeTab === "lunch" ? "active" : ""}`}
+                onClick={() => setActiveTab("lunch")}
+                aria-selected={activeTab === "lunch"}
+              >
+                Lunch
+              </button>
 
+              <button
+                type="button"
+                className={`nav-tab-btn ${activeTab === "dinner" ? "active" : ""}`}
+                onClick={() => setActiveTab("dinner")}
+                aria-selected={activeTab === "dinner"}
+              >
+                Dinner
+              </button>
 
-        <div className="dashboard-grid">
-          <div className="menu-grid-box">
-            {renderMealItems(activeTab)}
+              <button
+                type="button"
+                className={`nav-tab-btn ${activeTab === "snack" ? "active" : ""}`}
+                onClick={() => setActiveTab("snack")}
+                aria-selected={activeTab === "snack"}
+              >
+                Snack
+              </button>
+            </nav>
+
+            <div className="meal-scroll-wrapper">{renderMealItems(activeTab)}</div>
+          </div>
+
+          {/* Water card: no extra wrapper card, and stretched to match meal-pane height */}
+          <div className="water-panel">
+            <div className="water-fill">
+              <WaterTracker />
+            </div>
           </div>
         </div>
 
-        <div className="dashboard-graph">
-          {menuGraphComponent()}
-        </div>
-        <div className="dashboard-water-tracker">
-          <WaterTracker />
+        {/* Graph area: keep content, but NO shadow card outer frame */}
+        <div className="dashboard-graph-section">
+          <div className="nutrition-summary">
+            <DashboardGraph
+              totalNutritionCalorie={totalNutrition.calories}
+              totalNutritionProtiens={totalNutrition.proteins}
+              totalNutritionFats={totalNutrition.fats}
+              totalNutritionVitamins={totalNutrition.vitamins}
+              totalNutritionSodium={totalNutrition.sodium}
+            />
+          </div>
         </div>
       </div>
     </main>
