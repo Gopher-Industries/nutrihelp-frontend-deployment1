@@ -73,6 +73,7 @@ import DailyPlanEdit from "./routes/DailyPlan/DailyPlanEdit";
 import Account from "./routes/Account/Account.js";
 import TextToSpeechControl from "./components/TextToSpeech/TextToSpeech";
 import AdminAuditDashboard from "./routes/AdminAudit/AdminAuditDashboard";
+import HealthPlan from "./routes/HealthPlan/HealthPlan";
 import { isAuthPath } from "./utils/ttsRouteUtils";
 
 /* -------------------------------
@@ -540,6 +541,15 @@ function App() {
           element={
             <AuthenticateRoute>
               <HealthFAQ />
+            </AuthenticateRoute>
+          }
+        />
+
+        <Route
+          path="/health-plan"
+          element={
+            <AuthenticateRoute>
+              <HealthPlan />
             </AuthenticateRoute>
           }
         />

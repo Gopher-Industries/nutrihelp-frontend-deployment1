@@ -1,0 +1,470 @@
+:root {
+  --hp-primary: #005BBB;
+  --hp-primary-hover: #003f8a;
+  --hp-radius: 14px;
+}
+
+/* ── Page shell ── */
+.hp-page {
+  min-height: 100vh;
+  background-color: var(--background-color, #f5f7fb);
+  padding: 32px 16px 64px;
+}
+
+.hp-container {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* ── Hero ── */
+.hp-hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.hp-hero-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.hp-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--heading-color, #1a1a1a);
+  margin: 0 0 10px;
+}
+
+.hp-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary, #555);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ── Form ── */
+.hp-form {
+  background: var(--card-background, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--hp-radius);
+  padding: 28px 28px 24px;
+  box-shadow: 0 4px 16px rgba(0, 91, 187, 0.07);
+}
+
+.hp-field {
+  margin-bottom: 22px;
+}
+
+.hp-label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.93rem;
+  color: var(--text-primary, #222);
+  margin-bottom: 8px;
+}
+
+.hp-textarea {
+  width: 100%;
+  border: 1.5px solid var(--border-color, #ddd);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  color: var(--text-primary, #222);
+  background: var(--background-color, #fff);
+  resize: vertical;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  line-height: 1.55;
+}
+
+.hp-textarea:focus {
+  outline: none;
+  border-color: var(--hp-primary);
+  box-shadow: 0 0 0 3px rgba(0, 91, 187, 0.12);
+}
+
+.hp-char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #888);
+  margin-top: 4px;
+}
+
+/* ── Goal buttons ── */
+.hp-goal-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hp-goal-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 50px;
+  background: var(--card-background, #fff);
+  color: var(--text-primary, #333);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
+}
+
+.hp-goal-btn:hover:not(:disabled) {
+  border-color: var(--hp-primary);
+  color: var(--hp-primary);
+}
+
+.hp-goal-btn--active {
+  border-color: var(--hp-primary) !important;
+  background: var(--hp-primary) !important;
+  color: #fff !important;
+}
+
+.hp-goal-icon {
+  font-size: 1.1rem;
+}
+
+/* ── Cold-start note ── */
+.hp-cold-note {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #888);
+  background: #f0f6ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 18px;
+}
+
+/* ── Submit button ── */
+.hp-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  background: var(--hp-primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.hp-submit-btn:hover:not(:disabled) {
+  background: var(--hp-primary-hover);
+}
+
+.hp-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Error inline ── */
+.hp-error {
+  color: #c0392b;
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
+/* ── Error card ── */
+.hp-error-card {
+  background: #fff5f5;
+  border: 1px solid #fdd;
+  border-radius: var(--hp-radius);
+  padding: 24px;
+  text-align: center;
+  margin-top: 24px;
+}
+
+/* ── Loading card ── */
+.hp-loading-card {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--card-background, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--hp-radius);
+  margin-top: 24px;
+  box-shadow: 0 4px 16px rgba(0, 91, 187, 0.07);
+}
+
+.hp-loading-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #222);
+  margin: 16px 0 6px;
+}
+
+.hp-loading-sub {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #777);
+  margin: 0;
+}
+
+/* ── Spinners ── */
+.hp-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: hp-spin 0.7s linear infinite;
+}
+
+.hp-spinner-lg {
+  display: inline-block;
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(0, 91, 187, 0.15);
+  border-top-color: var(--hp-primary);
+  border-radius: 50%;
+  animation: hp-spin 0.8s linear infinite;
+}
+
+@keyframes hp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Results ── */
+.hp-results {
+  margin-top: 24px;
+}
+
+.hp-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.hp-results-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--heading-color, #1a1a1a);
+  margin: 0;
+}
+
+.hp-regenerate-btn {
+  padding: 8px 18px;
+  background: transparent;
+  border: 2px solid var(--hp-primary);
+  border-radius: 50px;
+  color: var(--hp-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.hp-regenerate-btn:hover {
+  background: var(--hp-primary);
+  color: #fff;
+}
+
+.hp-regenerate-btn--bottom {
+  display: block;
+  margin: 24px auto 0;
+}
+
+/* ── Sections ── */
+.hp-section {
+  background: var(--card-background, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--hp-radius);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 10px rgba(0, 91, 187, 0.05);
+}
+
+.hp-section--suggestion {
+  border-left: 5px solid #2E7D32;
+}
+
+.hp-section--analysis {
+  border-left: 5px solid var(--hp-primary);
+}
+
+.hp-section-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--heading-color, #1a1a1a);
+  margin: 0 0 10px;
+}
+
+.hp-suggestion-text,
+.hp-analysis-text {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--text-primary, #333);
+  margin: 0;
+  white-space: pre-line;
+}
+
+/* ── Week grid ── */
+.hp-weeks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hp-week-card {
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-left: 5px solid #005BBB;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card-background, #fff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.18s;
+}
+
+.hp-week-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 91, 187, 0.1);
+}
+
+.hp-week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+}
+
+.hp-week-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hp-week-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.hp-week-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 4px 12px;
+  border-radius: 50px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+.hp-week-focus {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary, #222);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hp-calorie-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #c05c00;
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+  border-radius: 50px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.hp-chevron {
+  font-size: 1.1rem;
+  color: var(--text-secondary, #888);
+  transition: transform 0.22s;
+  display: inline-block;
+}
+
+/* ── Week body ── */
+.hp-week-body {
+  padding: 4px 18px 18px;
+  border-top: 1px solid var(--border-color, #eee);
+}
+
+.hp-week-section {
+  margin-top: 14px;
+}
+
+.hp-week-section-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-secondary, #555);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px;
+}
+
+.hp-week-text {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-primary, #333);
+  margin: 0;
+}
+
+.hp-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text-primary, #333);
+}
+
+.hp-list--reminders {
+  list-style: none;
+  padding-left: 0;
+}
+
+.hp-list--reminders li::before {
+  content: "• ";
+  color: var(--hp-primary);
+  font-weight: 700;
+}
+
+/* ── Dark mode ── */
+.dark-mode .hp-cold-note {
+  background: rgba(0, 91, 187, 0.12);
+  border-color: rgba(0, 91, 187, 0.3);
+  color: var(--text-secondary);
+}
+
+.dark-mode .hp-textarea {
+  background: var(--card-background);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .hp-title { font-size: 1.5rem; }
+  .hp-form { padding: 20px 16px; }
+  .hp-results-header { flex-direction: column; align-items: flex-start; }
+  .hp-goal-group { flex-direction: column; }
+  .hp-goal-btn { width: 100%; justify-content: center; }
+  .hp-week-header { padding: 12px 14px; }
+  .hp-week-body { padding: 4px 14px 14px; }
+}

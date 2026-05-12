@@ -105,6 +105,9 @@ const SideMenu = ({ onNavigate, mode = "desktop", onClose }) => {
           <Link to="/survey" className="mega-item" onClick={close}>
             Fitness Roadmap
           </Link>
+          <Link to="/health-plan" className="mega-item" onClick={close}>
+            AI Health Plan
+          </Link>
         </div>
 
         <div className="mega-col">
@@ -172,6 +175,7 @@ const SideMenu = ({ onNavigate, mode = "desktop", onClose }) => {
             { type: "link", label: "Health News", to: "/healthnews" },
             { type: "link", label: "Symptom Assessment", to: "/symptomassessment" },
             { type: "link", label: "Fitness Roadmap", to: "/survey" },
+            { type: "link", label: "AI Health Plan", to: "/health-plan" },
           ],
         },
 
