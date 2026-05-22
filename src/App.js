@@ -72,7 +72,9 @@ import AuthCallback from "./pages/AuthCallback";
 import DailyPlanEdit from "./routes/DailyPlan/DailyPlanEdit";
 import Account from "./routes/Account/Account.js";
 import TextToSpeechControl from "./components/TextToSpeech/TextToSpeech";
+import FloatingChatbot from "./components/FloatingChatbot/FloatingChatbot";
 import AdminAuditDashboard from "./routes/AdminAudit/AdminAuditDashboard";
+import AdminDataCenter from "./routes/AdminDataCenter/AdminDataCenter";
 import HealthPlan from "./routes/HealthPlan/HealthPlan";
 import { isAuthPath } from "./utils/ttsRouteUtils";
 
@@ -91,6 +93,7 @@ function GlobalAuthenticatedLayout() {
     <>
       <MainNavbar />
       {currentUser ? <TextToSpeechControl /> : null}
+      {currentUser ? <FloatingChatbot /> : null}
     </>
   );
 }
@@ -505,6 +508,15 @@ function App() {
           element={
             <InternalAdminRoute>
               <AdminAuditDashboard />
+            </InternalAdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/data-center"
+          element={
+            <InternalAdminRoute>
+              <AdminDataCenter />
             </InternalAdminRoute>
           }
         />

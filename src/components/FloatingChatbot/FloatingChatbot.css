@@ -1,0 +1,354 @@
+/* ================================================
+   FloatingChatbot — elderly-friendly popup widget
+   ================================================ */
+
+/* ── Floating action button ── */
+.fc-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4b0fa8, #0a63ff);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(75, 15, 168, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fc-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 10px 32px rgba(75, 15, 168, 0.6);
+}
+
+.fc-fab:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.fc-fab--open {
+  background: linear-gradient(135deg, #b91c1c, #ef4444);
+}
+
+/* ── Popup panel ── */
+.fc-popup {
+  position: fixed;
+  bottom: 116px; /* FAB height 72 + gap 16 + bottom-offset 28 */
+  right: 28px;
+  width: 440px;
+  max-width: calc(100vw - 40px);
+  height: 580px;
+  max-height: calc(100vh - 150px);
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.24);
+  display: flex;
+  flex-direction: column;
+  z-index: 9998;
+  overflow: hidden;
+  animation: fc-slide-up 0.22s ease;
+}
+
+@keyframes fc-slide-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ── */
+.fc-header {
+  background: linear-gradient(135deg, #4b0fa8, #0a63ff);
+  color: #fff;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.fc-header-info {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.fc-avatar {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.fc-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.fc-subtitle {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.fc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-clear-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fc-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.fc-close-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #fff;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background 0.15s;
+}
+
+.fc-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Messages area ── */
+.fc-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px;
+  background: #f4f6fc;
+  scroll-behavior: smooth;
+}
+
+.fc-msg-row {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.fc-msg-row.left  { justify-content: flex-start; }
+.fc-msg-row.right { justify-content: flex-end; }
+
+.fc-msg-wrap { max-width: 80%; }
+
+.fc-bubble {
+  padding: 14px 18px;
+  border-radius: 20px;
+  font-size: 17px; /* larger for elderly */
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.fc-bubble.left {
+  background: #ffffff;
+  color: #1a2233;
+  border-bottom-left-radius: 5px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+
+.fc-bubble.right {
+  background: #0a63ff;
+  color: #ffffff;
+  border-bottom-right-radius: 5px;
+}
+
+.fc-bubble--error {
+  background: #fff0f0 !important;
+  color: #cc0000 !important;
+  border: 1px solid #ffbbbb;
+}
+
+.fc-meta {
+  font-size: 13px;
+  color: #8a94a6;
+  margin-top: 5px;
+  padding: 0 4px;
+}
+
+.fc-meta.right { text-align: right; }
+
+.fc-thinking {
+  font-style: italic;
+}
+
+/* ── Typing indicator ── */
+.fc-typing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 18px;
+  min-width: 64px;
+}
+
+.fc-typing span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9ca3af;
+  animation: fc-blink 1.2s infinite;
+}
+
+.fc-typing span:nth-child(2) { animation-delay: 0.2s; }
+.fc-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes fc-blink {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40%           { opacity: 1;   transform: scale(1); }
+}
+
+/* ── Composer ── */
+.fc-composer {
+  border-top: 1px solid #e4e9f4;
+  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.fc-input-wrap {
+  flex: 1;
+  background: #f0f3fc;
+  border-radius: 16px;
+  padding: 12px 15px;
+}
+
+.fc-input-wrap textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  font-size: 17px; /* larger for elderly */
+  line-height: 1.45;
+  font-family: inherit;
+  color: #1a2233;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.fc-input-wrap textarea::placeholder {
+  color: #a0aab8;
+}
+
+/* ── Action buttons (mic + send) ── */
+.fc-action-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+  border: none;
+  background: #4b0fa8;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.fc-action-btn:hover:not(:disabled) {
+  background: #3a0b85;
+  transform: scale(1.05);
+}
+
+.fc-action-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.fc-recording {
+  background: #ef4444 !important;
+  animation: fc-pulse 1.5s infinite;
+}
+
+.fc-send-btn {
+  background: #0a63ff !important;
+  font-size: 18px;
+}
+
+.fc-send-btn:hover:not(:disabled) {
+  background: #0051d4 !important;
+}
+
+/* ── Animations ── */
+@keyframes fc-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%       { transform: scale(1.1); opacity: 0.85; }
+}
+
+.fc-spin {
+  animation: fc-spin-anim 1s linear infinite;
+}
+
+@keyframes fc-spin-anim {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Expanded / full-page mode ── */
+.fc-popup--expanded {
+  bottom: 0 !important;
+  right: 0 !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  animation: none;
+}
+
+/* ── Mobile: compact popup (doesn't cover screen) ── */
+@media (max-width: 500px) {
+  .fc-popup {
+    bottom: 110px;
+    right: 12px;
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    height: 60vh;
+    max-height: 60vh;
+    border-radius: 22px;
+  }
+
+  .fc-fab {
+    bottom: 20px;
+    right: 20px;
+    width: 66px;
+    height: 66px;
+  }
+}
