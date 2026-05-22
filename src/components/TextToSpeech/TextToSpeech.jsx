@@ -264,7 +264,7 @@ const TextToSpeechControl = () => {
   const routeKey = `${location.pathname}${location.search}${location.hash}`;
 
   const syncFloatingBottomOffset = useCallback(() => {
-    const assistantButton = document.querySelector(".assistant-btn");
+    const assistantButton = document.querySelector(".fc-fab");
     if (!assistantButton) {
       setFloatingBottom(DEFAULT_FLOATING_BOTTOM);
       return;
@@ -289,7 +289,7 @@ const TextToSpeechControl = () => {
   useEffect(() => {
     syncFloatingBottomOffset();
 
-    const assistantButton = document.querySelector(".assistant-btn");
+    const assistantButton = document.querySelector(".fc-fab");
     const hasResizeObserver = typeof ResizeObserver !== "undefined";
     const resizeObserver =
       hasResizeObserver && assistantButton

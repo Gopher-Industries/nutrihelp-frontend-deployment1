@@ -28,7 +28,6 @@ import {
   Scale,
   Droplets,
   Users,
-  Bot,
   Quote,
   ChevronRight,
   ArrowRight,
@@ -212,9 +211,6 @@ const Home = () => {
   const [swiperInstance, setSwiperInstance] = useState(null);
   const aboutSectionRef = useRef(null);
 
-  const onAssistant = () => {
-    navigate(currentUser ? "/chat" : "/login");
-  };
 
   useEffect(() => {
     const lockHeroMaxWidth = () => {
@@ -796,16 +792,7 @@ const Home = () => {
           </div>
         </footer>
 
-        {/* == Floating Assistant Button == */}
-        <button
-          className="assistant-btn"
-          aria-label="Open assistant"
-          type="button"
-          onClick={onAssistant}
-        >
-          <Bot size={26} aria-hidden="true" />
-          <span>Assistant</span>
-        </button>
+
       </main>
     </FramerClient>
   );
